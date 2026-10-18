@@ -1,4 +1,4 @@
 node_modules/
-library/
+reelcut/projects/
 .env
 *.log

@@ -1,0 +1,14 @@
+{
+  "name": "@reel/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@elevenlabs/elevenlabs-js": "^2.71.0",
+    "zod": "^4.6.5"
+  }
+}

@@ -1,0 +1,26 @@
+import { basename, extname } from "node:path";
+import { reelIdFor, slugify } from "@reel/shared/download/ytdlp.ts";
+import type { ReelSource } from "@reel/shared/schemas/source.ts";
+import { readJson } from "@reel/shared/util/fs.ts";
+import { ProjectSchema, type Project } from "../schemas/project.ts";
+import type { ReelcutContext } from "./context.ts";
+
+export function defaultProjectName(source: ReelSource): string {
+  return source.kind === "url" ? reelIdFor(source) : slugify(basename(source.path, extname(source.path)));
+}
+
+export async function readProject(ctx: ReelcutContext): Promise<Project> {
+  try {
+    return await readJson(ctx.paths.project, ProjectSchema);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Project "${ctx.name}" does not exist. Start it with: reelcut run <url or file> --name ${ctx.name}`);
+    }
+    throw error;
+  }
+}
+
+export async function sourceVideo(ctx: ReelcutContext): Promise<string> {
+  const { source } = await readProject(ctx);
+  return source.kind === "url" ? ctx.paths.original : source.path;
+}
