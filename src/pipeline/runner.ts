@@ -1,14 +1,16 @@
 import { access, mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { Project } from "../schemas/project.ts";
+import type { Reel, ReelSource } from "../schemas/reel.ts";
 import { writeJsonAtomic } from "../util/fs.ts";
 import type { PipelineContext } from "./context.ts";
 import { checkStaleness } from "./staleness.ts";
 import type { Stage } from "./stage.ts";
-import { ingest } from "./stages/ingest.ts";
+import { audio } from "./stages/audio.ts";
+import { download } from "./stages/download.ts";
+import { frames } from "./stages/frames.ts";
 import { transcribe } from "./stages/transcribe.ts";
 
-export const STAGES: Stage[] = [ingest, transcribe];
+export const STAGES: Stage[] = [download, audio, frames, transcribe];
 
 export interface StageReport {
   stage: string;
@@ -17,15 +19,16 @@ export interface StageReport {
   seconds: number;
 }
 
-export async function initProject(
-  ctx: PipelineContext,
-  opts: { input: string; retakeWord: string; aggressive: boolean },
-): Promise<void> {
+export async function initReel(ctx: PipelineContext, source: ReelSource): Promise<void> {
   await mkdir(ctx.paths.dir, { recursive: true });
-  const project: Project = { version: 1, ...opts, input: resolve(opts.input) };
-  const next = `${JSON.stringify(project, null, 2)}\n`;
-  const current = await readFile(ctx.paths.project, "utf8").catch(() => null);
-  if (current !== next) await writeJsonAtomic(ctx.paths.project, project);
+  const reel: Reel = {
+    version: 1,
+    id: ctx.name,
+    source: source.kind === "file" ? { kind: "file", path: resolve(source.path) } : source,
+  };
+  const next = `${JSON.stringify(reel, null, 2)}\n`;
+  const current = await readFile(ctx.paths.reel, "utf8").catch(() => null);
+  if (current !== next) await writeJsonAtomic(ctx.paths.reel, reel);
 }
 
 async function firstMissing(paths: string[]): Promise<string | null> {

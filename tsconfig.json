@@ -14,5 +14,5 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["src", "tests", "remotion", "reelcut.config.ts"]
+  "include": ["src", "tests", "reelcut.config.ts"]
 }
