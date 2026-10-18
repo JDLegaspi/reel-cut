@@ -41,24 +41,42 @@ async function firstMissing(paths: string[]): Promise<string | null> {
 
 export function findStage(name: string): Stage {
   const stage = STAGES.find((s) => s.name === name);
-  if (!stage) throw new Error(`Unknown stage "${name}". Stages: ${STAGES.map((s) => s.name).join(", ")}`);
+  if (!stage)
+    throw new Error(
+      `Unknown stage "${name}". Stages: ${STAGES.map((s) => s.name).join(", ")}`,
+    );
   return stage;
 }
 
-export async function runStage(ctx: PipelineContext, stage: Stage, opts: { force: boolean }): Promise<StageReport> {
+export async function runStage(
+  ctx: PipelineContext,
+  stage: Stage,
+  opts: { force: boolean },
+): Promise<StageReport> {
   const started = performance.now();
   const inputs = await stage.inputs(ctx);
   const missing = await firstMissing(inputs);
   if (missing) {
     const producer = STAGES.find((s) => s.outputs(ctx).includes(missing));
-    const hint = producer ? ` Run "reelcut stage ${producer.name} ${ctx.name}" first.` : "";
+    const hint = producer
+      ? ` Run "reelcut stage ${producer.name} ${ctx.name}" first.`
+      : "";
     throw new Error(`[${stage.name}] missing input ${missing}.${hint}`);
   }
-  const decision = await checkStaleness({ inputs, outputs: stage.outputs(ctx), force: opts.force });
+  const decision = await checkStaleness({
+    inputs,
+    outputs: stage.outputs(ctx),
+    force: opts.force,
+  });
   const log = (message: string) => ctx.log(`[${stage.name}] ${message}`);
   if (!decision.run) {
     log(`skipped (${decision.reason})`);
-    return { stage: stage.name, ran: false, reason: decision.reason, seconds: 0 };
+    return {
+      stage: stage.name,
+      ran: false,
+      reason: decision.reason,
+      seconds: 0,
+    };
   }
   log(`running (${decision.reason})`);
   await stage.run({ ...ctx, log });
@@ -67,7 +85,10 @@ export async function runStage(ctx: PipelineContext, stage: Stage, opts: { force
   return { stage: stage.name, ran: true, reason: decision.reason, seconds };
 }
 
-export async function runPipeline(ctx: PipelineContext, opts: { force: boolean }): Promise<StageReport[]> {
+export async function runPipeline(
+  ctx: PipelineContext,
+  opts: { force: boolean },
+): Promise<StageReport[]> {
   const reports: StageReport[] = [];
   for (const stage of STAGES) reports.push(await runStage(ctx, stage, opts));
   return reports;
