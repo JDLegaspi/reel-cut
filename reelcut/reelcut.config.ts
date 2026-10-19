@@ -24,9 +24,19 @@ const config: ReelcutConfig = {
     languageCode: null,
     keyterms: [],
   },
+  frames: {
+    interval: 2,
+    maxFrames: 24,
+    width: 720,
+  },
   retakes: {
     retakeWord: "again",
     aggressive: false,
+  },
+  visuals: {
+    leadMs: 40,
+    minSegmentSeconds: 1.5,
+    minFaceSeconds: 1,
   },
 };
 

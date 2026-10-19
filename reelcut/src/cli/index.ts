@@ -5,9 +5,13 @@ import { createElevenLabsTranscriber } from "@reel/shared/transcribe/elevenlabs.
 import { Command } from "commander";
 import { config as loadEnv } from "dotenv";
 import { loadConfig } from "../config/load.ts";
+import { parseSpeakerCrop } from "../media/speakerCrop.ts";
 import { createContext, type ReelcutContext } from "../pipeline/context.ts";
 import { defaultProjectName } from "../pipeline/project.ts";
 import { findStage, initProject, runPipeline, runStage, STAGES } from "../pipeline/runner.ts";
+import { renderPropsFor } from "../pipeline/stages/render.ts";
+import { createClaudePlanner } from "../plan/claude.ts";
+import { createRemotionRenderer, openStudio } from "../render/remotion.ts";
 
 const PACKAGE_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 
@@ -20,6 +24,8 @@ function contextFor(name: string): ReelcutContext {
     projectsRoot: resolve(PACKAGE_ROOT, config.paths.projectsDir),
     config,
     transcriber: () => createElevenLabsTranscriber(config.transcription),
+    planner: () => createClaudePlanner(),
+    renderer: () => createRemotionRenderer(),
     log: (message) => console.log(message),
   });
 }
@@ -35,8 +41,13 @@ program
   .option("--name <project>", "project name (defaults to the reel id or file name)")
   .option("--retake-word <word>", "word that abandons the previous attempt")
   .option("--aggressive", "also remove natural fillers inside good sentences")
+  .option("--speaker-crop <crop>", 'part of the video that shows the speaker: "top-half", "bottom-half" or x,y,width,height')
   .option("--force", "rerun every stage")
-  .action(async (input: string, opts: { name?: string; retakeWord?: string; aggressive?: boolean; force?: boolean }) => {
+  .action(
+    async (
+      input: string,
+      opts: { name?: string; retakeWord?: string; aggressive?: boolean; speakerCrop?: string; force?: boolean },
+    ) => {
     const source = sourceFor(input);
     const name = opts.name ?? defaultProjectName(source);
     const ctx = contextFor(name);
@@ -44,10 +55,12 @@ program
       source,
       retakeWord: opts.retakeWord ?? ctx.config.retakes.retakeWord,
       aggressive: opts.aggressive ?? ctx.config.retakes.aggressive,
+      speakerCrop: opts.speakerCrop === undefined ? undefined : parseSpeakerCrop(opts.speakerCrop, ctx.config.video),
     });
     console.log(`project ${name} → ${ctx.paths.dir}`);
     await runPipeline(ctx, { force: opts.force ?? false });
-  });
+    },
+  );
 
 program
   .command("stage")
@@ -63,8 +76,9 @@ program
   .command("studio")
   .description("Open Remotion Studio for a project")
   .argument("<project>")
-  .action(() => {
-    throw new Error("studio is not available yet (milestone 3)");
+  .action(async (name: string) => {
+    const ctx = contextFor(name);
+    await openStudio({ props: await renderPropsFor(ctx), publicDir: ctx.paths.dir });
   });
 
 program.parseAsync().catch((error: unknown) => {

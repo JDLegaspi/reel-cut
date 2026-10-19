@@ -7,9 +7,23 @@
     "reelcut": "./bin/reelcut.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@reel/shared": "*",
+    "@remotion/bundler": "4.0.533",
+    "@remotion/cli": "4.0.533",
+    "@remotion/google-fonts": "4.0.533",
+    "@remotion/media": "4.0.533",
+    "@remotion/renderer": "4.0.533",
     "commander": "^15.0.0",
     "dotenv": "^18.0.6",
+    "lucide-react": "^1.59.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.533",
+    "simple-icons": "^16.35.0",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
   }
 }

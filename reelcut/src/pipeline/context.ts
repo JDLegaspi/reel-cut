@@ -2,12 +2,16 @@ import { resolve } from "node:path";
 import type { BaseContext, Log } from "@reel/shared/pipeline/stage.ts";
 import type { Transcriber } from "@reel/shared/transcribe/Transcriber.ts";
 import type { ReelcutConfig } from "../config/schema.ts";
+import type { Planner } from "../plan/Planner.ts";
+import type { Renderer } from "../render/Renderer.ts";
 import { projectPaths, type ProjectPaths } from "./paths.ts";
 
 export interface ReelcutContext extends BaseContext {
   paths: ProjectPaths;
   config: ReelcutConfig;
   transcriber: () => Transcriber;
+  planner: () => Planner;
+  renderer: () => Renderer;
 }
 
 export function createContext(opts: {
@@ -15,6 +19,8 @@ export function createContext(opts: {
   projectsRoot: string;
   config: ReelcutConfig;
   transcriber: () => Transcriber;
+  planner: () => Planner;
+  renderer: () => Renderer;
   log: Log;
 }): ReelcutContext {
   return {
@@ -22,6 +28,8 @@ export function createContext(opts: {
     paths: projectPaths(resolve(opts.projectsRoot, opts.name)),
     config: opts.config,
     transcriber: opts.transcriber,
+    planner: opts.planner,
+    renderer: opts.renderer,
     log: opts.log,
   };
 }

@@ -2,7 +2,7 @@ import { basename, extname } from "node:path";
 import { reelIdFor, slugify } from "@reel/shared/download/ytdlp.ts";
 import type { ReelSource } from "@reel/shared/schemas/source.ts";
 import { readJson } from "@reel/shared/util/fs.ts";
-import { ProjectSchema, type Project } from "../schemas/project.ts";
+import { ProjectSchema, SpeakerSchema, type Project, type Speaker } from "../schemas/project.ts";
 import type { ReelcutContext } from "./context.ts";
 
 export function defaultProjectName(source: ReelSource): string {
@@ -23,4 +23,13 @@ export async function readProject(ctx: ReelcutContext): Promise<Project> {
 export async function sourceVideo(ctx: ReelcutContext): Promise<string> {
   const { source } = await readProject(ctx);
   return source.kind === "url" ? ctx.paths.original : source.path;
+}
+
+export async function readSpeaker(ctx: ReelcutContext): Promise<Speaker | null> {
+  try {
+    return await readJson(ctx.paths.speaker, SpeakerSchema);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
 }

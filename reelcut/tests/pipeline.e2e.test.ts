@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { access, mkdtemp, readFile, stat } from "node:fs/promises";
+import { access, mkdtemp, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { probe } from "@reel/shared/media/probe.ts";
@@ -9,9 +9,13 @@ import { createFakeYtDlp } from "@reel/shared/testing/fakeYtDlp.ts";
 import { createMockTranscriber } from "@reel/shared/transcribe/mock.ts";
 import { beforeAll, describe, expect, test } from "vitest";
 import { loadConfig } from "../src/config/load.ts";
+import { createMockPlanner } from "../src/plan/mock.ts";
+import type { PlanInput } from "../src/plan/Planner.ts";
+import type { RenderJob, Renderer } from "../src/render/Renderer.ts";
 import type { ReelcutConfig } from "../src/config/schema.ts";
 import { createContext } from "../src/pipeline/context.ts";
 import { findStage, initProject, runPipeline, runStage } from "../src/pipeline/runner.ts";
+import type { PlannerOutput, VisualPlan } from "../src/schemas/visualPlan.ts";
 
 function hasFfmpeg() {
   try {
@@ -42,9 +46,53 @@ const transcript: Transcript = {
   ],
 };
 
-const options = { retakeWord: "again", aggressive: false };
+const options = { retakeWord: "again", aggressive: false, speakerCrop: null };
 
-describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () => {
+const noVisuals: PlannerOutput = { segments: [], emphasis: [] };
+const titleCard = { position: null, title: "Hello world", subtitle: null, icon: "hand", badges: [] };
+const wholeClip: PlannerOutput = {
+  segments: [
+    {
+      layout: "split",
+      template: "Countdown",
+      startWord: 0,
+      endWord: 1,
+      props: titleCard,
+      reveals: [{ key: "title", atWord: 1 }],
+      rationale: "opening line",
+    },
+  ],
+  emphasis: [],
+};
+const tooShort: PlannerOutput = {
+  segments: [{ layout: "split", template: "Countdown", startWord: 0, endWord: 0, props: titleCard, reveals: [], rationale: "opening line" }],
+  emphasis: [],
+};
+const unsaidNumber: PlannerOutput = {
+  segments: [
+    {
+      layout: "full",
+      template: "Stat",
+      startWord: 0,
+      endWord: 1,
+      props: { value: 40, prefix: null, suffix: null, label: "views", icon: "eye", trend: "none" },
+      reveals: [],
+      rationale: "stat",
+    },
+  ],
+  emphasis: [],
+};
+
+function fakeRenderer(jobs: RenderJob[] = []): Renderer {
+  return {
+    async render(job) {
+      jobs.push(job);
+      await writeFile(job.output, "rendered");
+    },
+  };
+}
+
+describe.skipIf(!hasFfmpeg())("pipeline", () => {
   let root: string;
   let input: string;
   let otherInput: string;
@@ -63,12 +111,17 @@ describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () =>
     makeClip(portrait, { size: "720x1280", audio: true });
   });
 
-  function context(name: string, config: ReelcutConfig = loadConfig()) {
+  function context(
+    name: string,
+    opts: { config?: ReelcutConfig; plans?: PlannerOutput[]; planCalls?: PlanInput[]; renders?: RenderJob[] } = {},
+  ) {
     return createContext({
       name,
       projectsRoot: join(root, "projects"),
-      config,
+      config: opts.config ?? loadConfig(),
       transcriber: () => createMockTranscriber(transcript),
+      planner: () => createMockPlanner(opts.plans ?? [noVisuals], opts.planCalls),
+      renderer: () => fakeRenderer(opts.renders),
       log: () => {},
     });
   }
@@ -86,6 +139,9 @@ describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () =>
       ["download", false],
       ["ingest", true],
       ["transcribe", true],
+      ["frames", true],
+      ["plan", true],
+      ["render", true],
     ]);
 
     const source = await probe("ffprobe", ctx.paths.source);
@@ -101,11 +157,11 @@ describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () =>
   });
 
   test("skips stages whose outputs are up to date", async () => {
-    expect((await runPipeline(context("demo"), { force: false })).map((r) => r.ran)).toEqual([false, false, false]);
+    expect((await runPipeline(context("demo"), { force: false })).map((r) => r.ran)).toEqual([false, false, false, false, false, false]);
   });
 
   test("reruns everything with force", async () => {
-    expect((await runPipeline(context("demo"), { force: true })).map((r) => r.ran)).toEqual([true, true, true]);
+    expect((await runPipeline(context("demo"), { force: true })).map((r) => r.ran)).toEqual([true, true, true, true, true, true]);
   });
 
   test("names the stage to run when an input is missing", async () => {
@@ -129,18 +185,21 @@ describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () =>
       video: portrait,
       info: { webpage_url: "https://www.instagram.com/p/abc/", channel: "someone" },
     });
-    const ctx = context("ig-abc", { ...base, paths: { ...base.paths, ytDlp } });
+    const ctx = context("ig-abc", { config: { ...base, paths: { ...base.paths, ytDlp } } });
     await initProject(ctx, { source: { kind: "url", url: "https://www.instagram.com/p/abc/" }, ...options });
 
     expect((await runPipeline(ctx, { force: false })).map((r) => [r.stage, r.ran])).toEqual([
       ["download", true],
       ["ingest", true],
       ["transcribe", true],
+      ["frames", true],
+      ["plan", true],
+      ["render", true],
     ]);
     await access(ctx.paths.original);
     expect(JSON.parse(await readFile(ctx.paths.infoRaw, "utf8"))).toMatchObject({ channel: "someone" });
     expect(await probe("ffprobe", ctx.paths.source)).toMatchObject({ width: 1080, height: 1920 });
-    expect((await runPipeline(ctx, { force: false })).map((r) => r.ran)).toEqual([false, false, false]);
+    expect((await runPipeline(ctx, { force: false })).map((r) => r.ran)).toEqual([false, false, false, false, false, false]);
   });
 
   test("rejects inputs without audio", async () => {
@@ -158,5 +217,165 @@ describe.skipIf(!hasFfmpeg())("pipeline: download, ingest and transcribe", () =>
     const reports = await runPipeline(ctx, { force: false });
     expect(reports.find((r) => r.stage === "ingest")?.ran).toBe(true);
     expect(JSON.parse(await readFile(ctx.paths.project, "utf8")).source).toEqual(fileSource(otherInput));
+  });
+
+  test("plans visuals and hands them to the renderer on the video's frame grid", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("planned", { plans: [wholeClip], renders });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await runPipeline(ctx, { force: false });
+
+    expect(JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"))).toEqual({
+      version: 1,
+      segments: [
+        {
+          id: "seg-01",
+          kind: "visual",
+          layout: "split",
+          template: "Countdown",
+          startWord: 0,
+          endWord: 1,
+          props: titleCard,
+          reveals: [{ key: "title", atWord: 1 }],
+          rationale: "opening line",
+        },
+      ],
+      emphasis: [],
+      downgraded: [],
+    });
+    expect(renders).toHaveLength(1);
+    const [job] = renders;
+    expect(job!.publicDir).toBe(ctx.paths.dir);
+    expect(job!.props).toMatchObject({
+      video: "source.mp4",
+      width: 1080,
+      height: 1920,
+      fps: 25,
+      speakerCrop: { x: 0, y: 0, width: 1080, height: 1920 },
+    });
+    expect(job!.props.segments).toEqual([
+      {
+        kind: "visual",
+        layout: "split",
+        id: "seg-01",
+        from: 4,
+        durationInFrames: job!.props.durationInFrames - 4,
+        template: "Countdown",
+        props: titleCard,
+        at: { title: 10 },
+      },
+    ]);
+    expect(await readFile(ctx.paths.final, "utf8")).toBe("rendered");
+  });
+
+  test("sends a plan that breaks a rule back to the planner once, with the problems", async () => {
+    const planCalls: PlanInput[] = [];
+    const ctx = context("retried", { plans: [tooShort, wholeClip], planCalls });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await runPipeline(ctx, { force: false });
+
+    expect(planCalls).toHaveLength(2);
+    expect(planCalls[0]!.frames.length).toBeGreaterThan(0);
+    expect(planCalls[0]!.frames[0]).toMatchObject({ t: 0 });
+    expect(planCalls[0]!.frames[0]!.data.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+    expect(planCalls[1]!.retry).toEqual({
+      previous: tooShort,
+      errors: ["segment 1 is on screen for 0.4s; a visual needs at least 1.5s"],
+    });
+    const plan: VisualPlan = JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"));
+    expect(plan.segments.map((s) => [s.startWord, s.endWord])).toEqual([[0, 1]]);
+  });
+
+  test("fails with the problems when the retried plan still breaks a rule", async () => {
+    const ctx = context("unfixable", { plans: [tooShort, tooShort] });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await expect(runPipeline(ctx, { force: false })).rejects.toThrow(
+      "segment 1 is on screen for 0.4s; a visual needs at least 1.5s",
+    );
+  });
+
+  test("keeps a hand-edited plan and renders it again", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("planned", { plans: [noVisuals], renders });
+    const plan: VisualPlan = JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"));
+    const segment = plan.segments[0]!;
+    if (segment.kind !== "visual") throw new Error("expected a visual segment");
+    segment.props = { ...segment.props, title: "Edited card" };
+    await writeFile(ctx.paths.visualPlan, JSON.stringify(plan));
+    const later = new Date(Date.now() + 5000);
+    await utimes(ctx.paths.visualPlan, later, later);
+
+    const reports = await runPipeline(ctx, { force: false });
+    expect(reports.map((r) => [r.stage, r.ran])).toEqual([
+      ["download", false],
+      ["ingest", false],
+      ["transcribe", false],
+      ["frames", false],
+      ["plan", false],
+      ["render", true],
+    ]);
+    expect(renders[0]!.props.segments[0]).toMatchObject({ props: { title: "Edited card" } });
+  });
+
+  test("drops a visual that still shows an unsaid number after the retry, and records why", async () => {
+    const renders: RenderJob[] = [];
+    const planCalls: PlanInput[] = [];
+    const ctx = context("unsaid", { plans: [unsaidNumber, unsaidNumber], planCalls, renders });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await runPipeline(ctx, { force: false });
+
+    const reason = "segment 1 (Stat): 40 is never said in this segment";
+    expect(planCalls[1]!.retry?.errors).toEqual([reason]);
+    const plan: VisualPlan = JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"));
+    expect(plan.segments).toEqual([]);
+    expect(plan.downgraded).toEqual([{ template: "Stat", startWord: 0, endWord: 1, reason }]);
+    expect(renders[0]!.props.segments).toEqual([]);
+  });
+
+  test("shows the speaker from the project's speaker crop", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("cropped", { renders });
+    const speakerCrop = { x: 0, y: 0, width: 1080, height: 960 };
+    await initProject(ctx, { source: fileSource(input), ...options, speakerCrop });
+    await runPipeline(ctx, { force: false });
+    expect(renders[0]!.props.speakerCrop).toEqual(speakerCrop);
+
+    const { speakerCrop: _, ...withoutCrop } = options;
+    await initProject(ctx, { source: fileSource(input), ...withoutCrop });
+    expect((await runPipeline(ctx, { force: false })).every((report) => !report.ran)).toBe(true);
+
+    await initProject(ctx, { source: fileSource(input), ...options, speakerCrop: { x: 0, y: 960, width: 1080, height: 960 } });
+    const reports = await runPipeline(ctx, { force: false });
+    expect(reports.filter((report) => report.ran).map((report) => report.stage)).toEqual(["render"]);
+    expect(renders.at(-1)!.props.speakerCrop).toEqual({ x: 0, y: 960, width: 1080, height: 960 });
+  });
+
+  test("keeps emphasis words said on the speaker's shots and drops the rest after the retry", async () => {
+    const renders: RenderJob[] = [];
+    const planCalls: PlanInput[] = [];
+    const plans: PlannerOutput[] = [
+      { segments: [], emphasis: [{ atWord: 1, text: "World" }, { atWord: 0, text: "goodbye" }] },
+    ];
+    const ctx = context("emphasis", { plans, planCalls, renders });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await runPipeline(ctx, { force: false });
+
+    expect(planCalls[1]!.retry?.errors).toEqual(['emphasis "goodbye" on word 0 doesn\'t match what is said there ("hello")']);
+    const plan: VisualPlan = JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"));
+    expect(plan.emphasis).toEqual([{ atWord: 1, text: "World" }]);
+    expect(renders[0]!.props.emphasis).toEqual([{ from: 14, durationInFrames: 20, text: "World" }]);
+  });
+
+  test("refuses to render a hand-edited plan that breaks a rule", async () => {
+    const ctx = context("planned");
+    const plan: VisualPlan = JSON.parse(await readFile(ctx.paths.visualPlan, "utf8"));
+    plan.segments[0]!.endWord = 0;
+    await writeFile(ctx.paths.visualPlan, JSON.stringify(plan));
+    const later = new Date(Date.now() + 10000);
+    await utimes(ctx.paths.visualPlan, later, later);
+
+    await expect(runStage(ctx, findStage("render"), { force: false })).rejects.toThrow(
+      "visual_plan.json breaks these rules:\n- segment 1 is on screen for 0.4s",
+    );
   });
 });

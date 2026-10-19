@@ -1,13 +1,7 @@
 import type { Rational } from "@reel/shared/media/probe.ts";
+import type { ReelcutConfig } from "../config/schema.ts";
 
-export interface VideoSettings {
-  width: number;
-  height: number;
-  crf: number;
-  preset: string;
-  audioBitrate: string;
-  audioSampleRate: number;
-}
+export type VideoSettings = ReelcutConfig["video"];
 
 const ASPECT_TOLERANCE = 0.01;
 

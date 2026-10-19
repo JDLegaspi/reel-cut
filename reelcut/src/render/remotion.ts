@@ -1,0 +1,61 @@
+import { spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { bundle } from "@remotion/bundler";
+import { renderMedia, selectComposition } from "@remotion/renderer";
+import { COMPOSITION_ID, type RenderProps } from "../../remotion/props.ts";
+import type { Renderer } from "./Renderer.ts";
+
+export const REMOTION_ENTRY = fileURLToPath(new URL("../../remotion/index.ts", import.meta.url));
+
+export function createRemotionRenderer(): Renderer {
+  return {
+    async render({ props, publicDir, output, video, log }) {
+      log("bundling compositions");
+      const serveUrl = await bundle({ entryPoint: REMOTION_ENTRY, publicDir, symlinkPublicDir: true });
+      try {
+        const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps: props });
+        let reported = -1;
+        await renderMedia({
+          composition,
+          serveUrl,
+          codec: "h264",
+          outputLocation: output,
+          inputProps: props,
+          crf: video.crf,
+          x264Preset: video.preset,
+          audioBitrate: video.audioBitrate,
+          onProgress: ({ progress }) => {
+            const percent = Math.floor(progress * 10) * 10;
+            if (percent > reported) {
+              reported = percent;
+              log(`rendering ${percent}%`);
+            }
+          },
+        });
+      } finally {
+        await rm(serveUrl, { recursive: true, force: true });
+      }
+    },
+  };
+}
+
+export function openStudio(opts: { props: RenderProps; publicDir: string }): Promise<void> {
+  const cliDir = dirname(createRequire(import.meta.url).resolve("@remotion/cli/package.json"));
+  const args = [
+    join(cliDir, "remotion-cli.js"),
+    "studio",
+    REMOTION_ENTRY,
+    "--public-dir",
+    opts.publicDir,
+    "--props",
+    JSON.stringify(opts.props),
+  ];
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, { stdio: "inherit" });
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`remotion studio exited with code ${code}`))));
+  });
+}

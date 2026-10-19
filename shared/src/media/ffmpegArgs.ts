@@ -45,6 +45,23 @@ export function buildFramesArgs(opts: {
   ];
 }
 
+export function buildFrameAtArgs(opts: { input: string; output: string; seconds: number; width: number }): string[] {
+  return [
+    ...QUIET,
+    "-ss",
+    opts.seconds.toFixed(3),
+    "-i",
+    opts.input,
+    "-frames:v",
+    "1",
+    "-vf",
+    `scale=${opts.width}:-2`,
+    "-q:v",
+    "4",
+    opts.output,
+  ];
+}
+
 export function buildRemuxArgs(input: string, output: string): string[] {
   return [...QUIET, "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", output];
 }

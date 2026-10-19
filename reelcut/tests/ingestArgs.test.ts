@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { buildNormalizeArgs, isTargetAspect } from "../src/media/ingestArgs.ts";
+import { buildNormalizeArgs, isTargetAspect, type VideoSettings } from "../src/media/ingestArgs.ts";
 
-const video = { width: 1080, height: 1920, crf: 18, preset: "medium", audioBitrate: "192k", audioSampleRate: 48000 };
+const video: VideoSettings = { width: 1080, height: 1920, crf: 18, preset: "medium", audioBitrate: "192k", audioSampleRate: 48000 };
 
 describe("isTargetAspect", () => {
   test("accepts 9:16 at any resolution", () => {
