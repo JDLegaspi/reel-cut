@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
-import { Glyph, iconName } from "./icons.tsx";
-import { clamp01, pop, rise, useFloat, useReveal } from "./parts.tsx";
-import { softShadow, theme } from "./theme.ts";
 import { useCurrentFrame } from "remotion";
-
-const COLORS = { blue: ["#7DA2FF", theme.blue], green: ["#86EFAC", theme.green], yellow: ["#FFE680", "#F5B400"], violet: ["#D3C3FF", "#7C5CFF"], red: ["#FDA4AF", theme.red] } as const;
+import { useStyle } from "../style/StyleContext.tsx";
+import { alpha, fontStack, headline, mix, readableOn, roleColor, shadowColor, shadowFor } from "../style/tokens.ts";
+import { colorRole, Glyph, iconName } from "./icons.tsx";
+import { clamp01, pop, rise, useFloat, useReveal } from "./parts.tsx";
 
 const schema = z.object({
   icon: iconName.describe("the main idea as a lucide icon in kebab-case, e.g. target, chef-hat, rocket"),
@@ -14,7 +13,7 @@ const schema = z.object({
     .array(z.object({ key: z.string().min(1).max(20), icon: iconName }))
     .max(5)
     .describe("up to five related things the speaker mentions, orbiting the main icon"),
-  color: z.enum(["blue", "green", "yellow", "violet", "red"]),
+  color: colorRole,
 });
 
 type Props = z.infer<typeof schema>;
@@ -25,12 +24,14 @@ const ORBIT = { x: 360, y: 250 };
 function Satellite({ icon, angle, at, index }: { icon: string; angle: number; at: number | undefined; index: number }) {
   const progress = useReveal(at, 6 + index * 3);
   const bob = useFloat(10, 60, index * 1.3);
+  const style = useStyle();
+  const { palette } = style;
   const x = CENTER.x + Math.cos(angle) * ORBIT.x;
   const y = CENTER.y + Math.sin(angle) * ORBIT.y + bob;
   return (
     <>
       <svg style={{ position: "absolute", inset: 0, overflow: "visible", opacity: clamp01(progress) * 0.7 }} width={1080} height={960}>
-        <line x1={CENTER.x} y1={CENTER.y} x2={x} y2={y} stroke="rgba(255,255,255,0.55)" strokeWidth={4} strokeDasharray="4 14" strokeLinecap="round" />
+        <line x1={CENTER.x} y1={CENTER.y} x2={x} y2={y} stroke={alpha(palette.onBackdrop, 0.55)} strokeWidth={4} strokeDasharray="4 14" strokeLinecap="round" />
       </svg>
       <div
         style={{
@@ -40,15 +41,15 @@ function Satellite({ icon, angle, at, index }: { icon: string; angle: number; at
           width: 144,
           height: 144,
           borderRadius: 72,
-          backgroundColor: theme.paper,
-          boxShadow: softShadow,
+          backgroundColor: palette.surface,
+          boxShadow: shadowFor(style, "small"),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           ...pop(progress),
         }}
       >
-        <Glyph name={icon} size={72} color={theme.ink} />
+        <Glyph name={icon} size={72} color={palette.onSurface} />
       </div>
     </>
   );
@@ -56,14 +57,19 @@ function Satellite({ icon, angle, at, index }: { icon: string; angle: number; at
 
 function Component({ props, at }: { props: Props; at: Record<string, number> }) {
   const frame = useCurrentFrame();
+  const style = useStyle();
+  const { palette } = style;
   const hero = useReveal(at.icon);
   const label = useReveal(at.label);
   const breathe = useFloat(0.04, 50);
-  const [light, dark] = COLORS[props.color];
+  const dark = roleColor(style, props.color);
+  const light = mix(dark, palette.surface, 0.45);
+  const glow = style.flourishes.glow;
+  const labelSize = 52;
   const spin = frame * 0.004;
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      {[0, 1].map((ring) => {
+      {glow && [0, 1].map((ring) => {
         const phase = ((frame + ring * 30) % 60) / 60;
         return (
           <div
@@ -100,7 +106,7 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
           height: 320,
           borderRadius: 160,
           background: `radial-gradient(circle at 35% 30%, ${light}, ${dark})`,
-          boxShadow: `0 0 80px ${light}, 0 30px 60px rgba(3,8,45,0.5)`,
+          boxShadow: glow ? `0 0 80px ${light}, 0 30px 60px ${alpha(shadowColor(style), 0.5)}` : shadowFor(style, "card"),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -108,12 +114,12 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
           opacity: clamp01(hero * 2),
         }}
       >
-        <Glyph name={props.icon} size={170} color="#fff" strokeWidth={2.2} />
+        <Glyph name={props.icon} size={170} color={readableOn(style, dark)} />
       </div>
       {props.label && (
         <div style={{ position: "absolute", left: 0, right: 0, top: 800, display: "flex", justifyContent: "center", ...rise(label) }}>
-          <div style={{ padding: "18px 44px", borderRadius: 999, backgroundColor: theme.paper, color: theme.ink, fontSize: 52, fontWeight: 900, letterSpacing: -1, boxShadow: softShadow }}>
-            {props.label}
+          <div style={{ padding: "18px 44px", borderRadius: 999, backgroundColor: palette.surface, color: palette.onSurface, fontFamily: fontStack(style.type.display), fontSize: labelSize, fontWeight: style.type.displayWeight, letterSpacing: -1, boxShadow: shadowFor(style, "small") }}>
+            {headline(style, props.label)}
           </div>
         </div>
       )}
@@ -136,7 +142,7 @@ export const Concept = defineTemplate({
       { key: "book", icon: "book-open" },
       { key: "save", icon: "bookmark" },
     ],
-    color: "yellow",
+    color: "accent",
   },
   Component,
 });

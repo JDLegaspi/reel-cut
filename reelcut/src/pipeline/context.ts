@@ -8,6 +8,7 @@ import { projectPaths, type ProjectPaths } from "./paths.ts";
 
 export interface ReelcutContext extends BaseContext {
   paths: ProjectPaths;
+  stylesRoot: string;
   config: ReelcutConfig;
   transcriber: () => Transcriber;
   planner: () => Planner;
@@ -17,6 +18,7 @@ export interface ReelcutContext extends BaseContext {
 export function createContext(opts: {
   name: string;
   projectsRoot: string;
+  stylesRoot: string;
   config: ReelcutConfig;
   transcriber: () => Transcriber;
   planner: () => Planner;
@@ -26,6 +28,7 @@ export function createContext(opts: {
   return {
     name: opts.name,
     paths: projectPaths(resolve(opts.projectsRoot, opts.name)),
+    stylesRoot: resolve(opts.stylesRoot),
     config: opts.config,
     transcriber: opts.transcriber,
     planner: opts.planner,

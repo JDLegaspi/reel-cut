@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
+import { useStyle } from "../style/StyleContext.tsx";
+import { alpha, fontStack, headline, shadowFor, tracking } from "../style/tokens.ts";
 import { Burst, clamp01, fitSize, pop, rise, useFloat, useProgress, useReveal } from "./parts.tsx";
-import { softShadow, theme } from "./theme.ts";
 
 const SHAPES = ["hockey-stick", "exponential", "steady", "decline"] as const;
 
@@ -39,15 +40,19 @@ function points(shape: Props["shape"]): [number, number][] {
 }
 
 function Component({ props, at }: { props: Props; at: Record<string, number> }) {
+  const style = useStyle();
+  const { palette } = style;
   const drawn = useProgress(at.curve, 1.6);
   const badge = useReveal(at.badge ?? Math.round(1.6 * 30));
-  const glow = useFloat(0.25, 40);
+  const pulse = useFloat(0.25, 40);
   const line = points(props.shape);
   const head = line[Math.round(drawn * SAMPLES)]!;
   const visible = line.slice(0, Math.round(drawn * SAMPLES) + 1);
   const path = visible.map(([x, y], k) => `${k === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `${path} L${head[0].toFixed(1)},${HEIGHT} L0,${HEIGHT} Z`;
-  const color = props.shape === "decline" ? theme.red : theme.yellow;
+  const color = props.shape === "decline" ? palette.negative : palette.accent;
+  const glow = style.flourishes.glow;
+  const badgeSize = props.badge ? fitSize(props.badge, { max: 100, min: 64, fits: 7 }) : 0;
   const badgeLeft = props.shape === "decline" ? WIDTH - 460 : 0;
   return (
     <div style={{ position: "absolute", left: 110, top: 150, width: WIDTH, height: HEIGHT }}>
@@ -59,46 +64,47 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
           </linearGradient>
         </defs>
         {[0.25, 0.5, 0.75, 1].map((f) => (
-          <line key={f} x1={0} x2={WIDTH} y1={HEIGHT - f * HEIGHT} y2={HEIGHT - f * HEIGHT} stroke="rgba(255,255,255,0.12)" strokeWidth={3} strokeDasharray="10 14" />
+          <line key={f} x1={0} x2={WIDTH} y1={HEIGHT - f * HEIGHT} y2={HEIGHT - f * HEIGHT} stroke={alpha(palette.onBackdrop, 0.12)} strokeWidth={3} strokeDasharray="10 14" />
         ))}
-        <line x1={0} x2={WIDTH} y1={HEIGHT} y2={HEIGHT} stroke="rgba(255,255,255,0.4)" strokeWidth={4} />
+        <line x1={0} x2={WIDTH} y1={HEIGHT} y2={HEIGHT} stroke={alpha(palette.onBackdrop, 0.4)} strokeWidth={4} />
         <path d={area} fill="url(#growth-fill)" />
-        <path d={path} fill="none" stroke={color} strokeWidth={16} strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 18px ${color})` }} />
-        <circle cx={head[0]} cy={head[1]} r={22 + glow * 20} fill={color} opacity={0.35} />
-        <circle cx={head[0]} cy={head[1]} r={16} fill="#fff" stroke={color} strokeWidth={6} />
+        <path d={path} fill="none" stroke={color} strokeWidth={16} strokeLinecap="round" strokeLinejoin="round" style={{ filter: glow ? `drop-shadow(0 0 18px ${color})` : undefined }} />
+        {glow && <circle cx={head[0]} cy={head[1]} r={22 + pulse * 20} fill={color} opacity={0.35} />}
+        <circle cx={head[0]} cy={head[1]} r={16} fill={palette.surface} stroke={color} strokeWidth={6} />
       </svg>
       {props.startLabel && (
-        <div style={{ position: "absolute", left: 0, top: HEIGHT + 24, fontSize: 40, fontWeight: 800, color: theme.whiteMuted, ...rise(clamp01(drawn * 3)) }}>
+        <div style={{ position: "absolute", left: 0, top: HEIGHT + 24, fontSize: 40, fontWeight: 800, color: palette.onBackdropMuted, ...rise(clamp01(drawn * 3)) }}>
           {props.startLabel}
         </div>
       )}
       {props.endLabel && (
-        <div style={{ position: "absolute", right: 0, top: HEIGHT + 24, fontSize: 40, fontWeight: 800, color: theme.white, ...rise(clamp01((drawn - 0.7) * 4)) }}>
+        <div style={{ position: "absolute", right: 0, top: HEIGHT + 24, fontSize: 40, fontWeight: 800, color: palette.onBackdrop, ...rise(clamp01((drawn - 0.7) * 4)) }}>
           {props.endLabel}
         </div>
       )}
       {props.badge && (
         <div style={{ position: "absolute", left: badgeLeft, top: 10, width: 460, height: 180 }}>
-          <Burst at={at.badge ?? Math.round(1.6 * 30)} color={theme.yellow} size={260} count={12} />
+          <Burst at={at.badge ?? Math.round(1.6 * 30)} color={palette.accent} size={260} count={12} />
           <div
             style={{
               width: 460,
               height: 180,
-              borderRadius: 40,
-              backgroundColor: theme.paper,
-              boxShadow: softShadow,
+              borderRadius: style.shape.radius,
+              backgroundColor: palette.surface,
+              boxShadow: shadowFor(style, "small"),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: fitSize(props.badge, { max: 100, min: 64, fits: 7 }),
-              fontWeight: 900,
-              letterSpacing: -3,
-              color: theme.ink,
-              transform: `rotate(-4deg) ${pop(badge).transform}`,
+              fontFamily: fontStack(style.type.display),
+              fontSize: badgeSize,
+              fontWeight: style.type.displayWeight,
+              letterSpacing: tracking(style, badgeSize),
+              color: palette.onSurface,
+              transform: `rotate(${style.shape.tilt ? -4 : 0}deg) ${pop(badge).transform}`,
               opacity: pop(badge).opacity,
             }}
           >
-            {props.badge}
+            {headline(style, props.badge)}
           </div>
         </div>
       )}

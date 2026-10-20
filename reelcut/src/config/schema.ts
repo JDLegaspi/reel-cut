@@ -18,6 +18,7 @@ export const X264_PRESETS = [
 export const ConfigSchema = z.object({
   paths: z.object({
     projectsDir: z.string(),
+    stylesDir: z.string(),
     ...ToolsSchema.shape,
   }),
   video: z.object({
@@ -39,6 +40,11 @@ export const ConfigSchema = z.object({
     leadMs: z.number().nonnegative(),
     minSegmentSeconds: z.number().positive(),
     minFaceSeconds: z.number().nonnegative(),
+  }),
+  styles: z.object({
+    maxImages: z.number().int().positive(),
+    pageTimeoutSeconds: z.number().positive(),
+    reelFrames: z.number().int().positive(),
   }),
 });
 

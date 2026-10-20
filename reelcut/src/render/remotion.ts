@@ -4,9 +4,10 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
-import { COMPOSITION_ID, type RenderProps } from "../../remotion/props.ts";
-import type { Renderer } from "./Renderer.ts";
+import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { COMPOSITION_ID, SHEET_ID, type RenderProps, type SheetProps } from "../../remotion/props.ts";
+import { resolveFontFiles } from "../style/fonts.ts";
+import type { Renderer, SheetRenderer } from "./Renderer.ts";
 
 export const REMOTION_ENTRY = fileURLToPath(new URL("../../remotion/index.ts", import.meta.url));
 
@@ -35,6 +36,21 @@ export function createRemotionRenderer(): Renderer {
             }
           },
         });
+      } finally {
+        await rm(serveUrl, { recursive: true, force: true });
+      }
+    },
+  };
+}
+
+export function createRemotionSheetRenderer(): SheetRenderer {
+  return {
+    async render(style, output) {
+      const serveUrl = await bundle({ entryPoint: REMOTION_ENTRY });
+      try {
+        const inputProps: SheetProps = { style, fonts: await resolveFontFiles(style) };
+        const composition = await selectComposition({ serveUrl, id: SHEET_ID, inputProps });
+        await renderStill({ composition, serveUrl, output, inputProps, frame: 90, imageFormat: "png" });
       } finally {
         await rm(serveUrl, { recursive: true, force: true });
       }

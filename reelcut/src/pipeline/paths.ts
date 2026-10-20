@@ -5,6 +5,7 @@ export function projectPaths(dir: string) {
     dir,
     project: join(dir, "project.json"),
     speaker: join(dir, "speaker.json"),
+    style: join(dir, "style.json"),
     original: join(dir, "original.mp4"),
     infoRaw: join(dir, "info.raw.json"),
     source: join(dir, "source.mp4"),

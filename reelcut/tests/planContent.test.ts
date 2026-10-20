@@ -1,5 +1,8 @@
 import type { Word } from "@reel/shared/schemas/transcript.ts";
 import { describe, expect, test } from "vitest";
+import { Concept } from "../remotion/templates/Concept.tsx";
+import { Kinetic } from "../remotion/templates/Kinetic.tsx";
+import { Phone } from "../remotion/templates/Phone.tsx";
 import { contentProblems } from "../src/plan/content.ts";
 import type { PlannedVisual } from "../src/schemas/visualPlan.ts";
 
@@ -113,6 +116,42 @@ describe("contentProblems", () => {
     expect(contentProblems({ ...segment, reveals: [] }, words, 1)).toEqual([
       'segment 1 (Countdown): "10" in "10 hours" is never said in this segment',
     ]);
+  });
+
+  test("turns Kinetic lines written in capitals into sentence case, keeping short acronyms", () => {
+    const said = spoken("They quadrupled down on AI for 20x revenue.");
+    const kinetic = (text: string): PlannedVisual => ({
+      layout: "full",
+      template: "Kinetic",
+      startWord: 0,
+      endWord: 7,
+      props: { lines: [{ key: "a", text, style: "plain" }] },
+      reveals: [],
+      rationale: "punchline",
+    });
+    const shown = (text: string) => (Kinetic.schema.parse(kinetic(text).props) as { lines: { text: string }[] }).lines[0]!.text;
+    expect(contentProblems(kinetic("QUADRUPLED DOWN"), said, 1)).toEqual([]);
+    expect(shown("QUADRUPLED DOWN")).toBe("Quadrupled down");
+    expect(shown("20X REVENUE")).toBe("20x revenue");
+    expect(shown("AI")).toBe("AI");
+    expect(shown("Quadrupled")).toBe("Quadrupled");
+  });
+
+  test("accepts colour names from plans made before styles, as colour roles", () => {
+    const concept: PlannedVisual = {
+      layout: "split",
+      template: "Concept",
+      startWord: 0,
+      endWord: 6,
+      props: { icon: "target", label: null, satellites: [], color: "violet" },
+      reveals: [],
+      rationale: "idea",
+    };
+    expect(contentProblems(concept, words, 1)).toEqual([]);
+    expect((Concept.schema.parse(concept.props) as { color: string }).color).toBe("tint2");
+    const app = { name: "ReciMe", icon: "chef-hat", color: "orange" };
+    const phone = { ...concept, template: "Phone", props: { app, screen: { type: "listing", subtitle: null }, callout: null } };
+    expect((Phone.schema.parse(phone.props) as { app: { color: string } }).app.color).toBe("tint4");
   });
 
   test("rejects an icon that doesn't exist", () => {

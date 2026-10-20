@@ -1,6 +1,8 @@
 import type { Word } from "@reel/shared/schemas/transcript.ts";
 import type { Rect } from "../../remotion/framing.ts";
-import type { RenderProps, RenderSegment } from "../../remotion/props.ts";
+import type { FontFile, RenderProps, RenderSegment } from "../../remotion/props.ts";
+import { findTemplate } from "../../remotion/templates/registry.ts";
+import type { Style } from "../schemas/style.ts";
 import { segmentWindow } from "../plan/rules.ts";
 import type { VisualPlan } from "../schemas/visualPlan.ts";
 
@@ -16,6 +18,8 @@ export function buildRenderProps(opts: {
   leadMs: number;
   video: string;
   speakerCrop: Rect;
+  style: Style;
+  fonts: FontFile[];
 }): RenderProps {
   const { plan, words, duration, fps, leadMs } = opts;
   const durationInFrames = Math.floor(duration * fps);
@@ -42,7 +46,8 @@ export function buildRenderProps(opts: {
           Math.max(0, toFrame(words[reveal.atWord]!.start - leadMs / 1000) - from),
         ]),
       );
-      return { kind: "visual", layout: segment.layout, ...timing, template: segment.template, props: segment.props, at };
+      const props = (findTemplate(segment.template)?.schema.parse(segment.props) ?? segment.props) as Record<string, unknown>;
+      return { kind: "visual", layout: segment.layout, ...timing, template: segment.template, props, at };
   });
 
   const emphasis = plan.emphasis.map((word) => {
@@ -58,6 +63,8 @@ export function buildRenderProps(opts: {
     fps,
     durationInFrames,
     speakerCrop: opts.speakerCrop,
+    style: opts.style,
+    fonts: opts.fonts,
     segments,
     emphasis,
   };

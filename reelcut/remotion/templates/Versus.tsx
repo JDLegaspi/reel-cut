@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
 import { Glyph, iconName } from "./icons.tsx";
+import { useStyle } from "../style/StyleContext.tsx";
+import { alpha, fontStack, mix, readableOn, shadowFor } from "../style/tokens.ts";
 import { Card, clamp01, pop, useFloat, useReveal } from "./parts.tsx";
-import { theme } from "./theme.ts";
 
 const side = z.object({
   icon: iconName,
@@ -18,8 +19,9 @@ type Side = Props["left"];
 
 function Cluster({ side, at }: { side: Side; at: number | undefined }) {
   const progress = useReveal(at, 4);
+  const style = useStyle();
   const good = side.verdict === "good";
-  const color = good ? theme.green : theme.red;
+  const color = good ? style.palette.positive : style.palette.negative;
   if (side.count === 1) {
     return (
       <div
@@ -27,15 +29,15 @@ function Cluster({ side, at }: { side: Side; at: number | undefined }) {
           width: 230,
           height: 230,
           borderRadius: 115,
-          background: `radial-gradient(circle at 35% 30%, ${good ? "#86EFAC" : "#FDA4AF"}, ${color})`,
-          boxShadow: `0 0 0 18px ${good ? "rgba(34,197,94,0.15)" : "rgba(244,63,94,0.15)"}`,
+          background: `radial-gradient(circle at 35% 30%, ${mix(color, style.palette.surface, 0.45)}, ${color})`,
+          boxShadow: `0 0 0 18px ${alpha(color, 0.15)}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           ...pop(progress),
         }}
       >
-        <Glyph name={side.icon} size={130} color="#fff" strokeWidth={2.4} />
+        <Glyph name={side.icon} size={130} color={readableOn(style, color)} />
       </div>
     );
   }
@@ -53,14 +55,16 @@ function Cluster({ side, at }: { side: Side; at: number | undefined }) {
 function Tile({ index, size, side, at }: { index: number; size: number; side: Side; at: number | undefined }) {
   const progress = useReveal(at, 3 + index * 2);
   const wobble = useFloat(side.verdict === "bad" ? 7 : 0, 22, index);
+  const style = useStyle();
   const good = side.verdict === "good";
+  const color = good ? style.palette.positive : style.palette.negative;
   return (
     <div
       style={{
         width: size,
         height: size,
         borderRadius: size * 0.28,
-        backgroundColor: good ? "#DCFCE7" : "#FFE4E6",
+        backgroundColor: mix(color, style.palette.surface, 0.82),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -68,15 +72,17 @@ function Tile({ index, size, side, at }: { index: number; size: number; side: Si
         opacity: clamp01(progress * 1.8) * (good ? 1 : 0.85),
       }}
     >
-      <Glyph name={side.icon} size={size * 0.56} color={good ? theme.green : theme.red} />
+      <Glyph name={side.icon} size={size * 0.56} color={color} />
     </div>
   );
 }
 
 function Panel({ side, at, x }: { side: Side; at: number | undefined; x: number }) {
   const progress = useReveal(at);
+  const style = useStyle();
   const good = side.verdict === "good";
-  const color = good ? theme.green : theme.red;
+  const color = good ? style.palette.positive : style.palette.negative;
+  const lean = style.shape.tilt ? (x < 500 ? -3 : 3) * (1 - progress * 0.6) : 0;
   return (
     <Card
       style={{
@@ -90,13 +96,13 @@ function Panel({ side, at, x }: { side: Side; at: number | undefined; x: number 
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "space-between",
-        transform: `translateY(${(1 - progress) * 120}px) rotate(${(x < 500 ? -3 : 3) * (1 - progress * 0.6)}deg)`,
+        transform: `translateY(${(1 - progress) * 120}px) rotate(${lean}deg)`,
         opacity: clamp01(progress * 2),
-        boxShadow: good ? "0 0 0 6px rgba(34,197,94,0.55), 0 40px 90px rgba(3,8,45,0.45)" : undefined,
+        boxShadow: good ? [`0 0 0 6px ${alpha(color, 0.55)}`, shadowFor(style, "card")].filter(Boolean).join(", ") : undefined,
       }}
     >
       <div style={{ alignSelf: "flex-start", width: 76, height: 76, borderRadius: 38, backgroundColor: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Glyph name={good ? "check" : "x"} size={48} color="#fff" strokeWidth={4} />
+        <Glyph name={good ? "check" : "x"} size={48} color={readableOn(style, color)} strokeWidth={4} />
       </div>
       <Cluster side={side} at={at} />
       <div style={{ fontSize: 46, fontWeight: 800, textAlign: "center", lineHeight: 1.1, letterSpacing: -1 }}>{side.label}</div>
@@ -106,6 +112,7 @@ function Panel({ side, at, x }: { side: Side; at: number | undefined; x: number 
 
 function Component({ props, at }: { props: Props; at: Record<string, number> }) {
   const vs = useReveal(at.right, 2);
+  const style = useStyle();
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       <Panel side={props.left} at={at.left} x={70} />
@@ -118,14 +125,15 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
           width: 140,
           height: 140,
           borderRadius: 70,
-          backgroundColor: theme.yellow,
-          color: theme.ink,
+          backgroundColor: style.palette.accent,
+          color: style.palette.onAccent,
+          fontFamily: fontStack(style.type.display),
           fontSize: 56,
-          fontWeight: 900,
+          fontWeight: style.type.displayWeight,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: "0 18px 40px rgba(3,8,45,0.4)",
+          boxShadow: shadowFor(style, "small"),
           ...pop(vs),
         }}
       >

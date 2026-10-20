@@ -25,6 +25,8 @@ import {
   siYoutube,
 } from "simple-icons";
 import { z } from "zod";
+import { COLOR_ROLES, type ColorRole } from "../../src/schemas/style.ts";
+import { useStyle } from "../style/StyleContext.tsx";
 
 const BRAND_ICONS = {
   instagram: siInstagram,
@@ -71,14 +73,31 @@ export const iconName = z
   .refine(isIconName, { message: "not a lucide icon name; use kebab-case names such as chef-hat, dollar-sign, trending-up" })
   .describe("a lucide icon name in kebab-case, e.g. chef-hat, dollar-sign, smartphone, bookmark, lock, users, rocket");
 
-export function Glyph({ name, size, color, strokeWidth = 2.2 }: { name: string; size: number; color: string; strokeWidth?: number }) {
+const LEGACY_COLORS: Record<string, ColorRole> = {
+  yellow: "accent",
+  green: "positive",
+  red: "negative",
+  blue: "tint1",
+  violet: "tint2",
+  cyan: "tint3",
+  orange: "tint4",
+  pink: "tint4",
+};
+
+export const colorRole = z
+  .preprocess((value) => (typeof value === "string" && value in LEGACY_COLORS ? LEGACY_COLORS[value] : value), z.enum(COLOR_ROLES))
+  .describe("a colour from the video's style: accent (the highlight), positive, negative, or tint1 to tint4 (supporting colours)");
+
+export function Glyph({ name, size, color, strokeWidth }: { name: string; size: number; color: string; strokeWidth?: number }) {
+  const style = useStyle();
   const Icon = icons[iconKey(name) as keyof typeof icons] ?? icons.Sparkles;
-  return <Icon size={size} color={color} strokeWidth={strokeWidth} absoluteStrokeWidth={false} />;
+  return <Icon size={size} color={color} strokeWidth={strokeWidth ?? style.icons.stroke} absoluteStrokeWidth={false} />;
 }
 
 export function BrandMark({ brand, size }: { brand: Brand; size: number }) {
+  const style = useStyle();
   const icon = BRAND_ICONS[brand];
-  const color = icon.hex === "000000" || icon.hex === "191919" ? "#0B1020" : `#${icon.hex}`;
+  const color = icon.hex === "000000" || icon.hex === "191919" ? style.palette.onSurface : `#${icon.hex}`;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24">
       <path d={icon.path} fill={color} />

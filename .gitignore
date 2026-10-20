@@ -2,3 +2,4 @@ node_modules/
 reelcut/projects/
 .env
 *.log
+reelcut/styles/

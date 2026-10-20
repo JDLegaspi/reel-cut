@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { AbsoluteFill, staticFile, useCurrentFrame } from "remotion";
 import { speakerFrame, speakerPanel, type Rect, type Size } from "./framing.ts";
 import type { EmphasisWord, RenderSegment } from "./props.ts";
-import { Backdrop, Camera, clamp01, fitSize, useReveal } from "./templates/parts.tsx";
-import { BOX, FULL_BOX_TOP, theme } from "./templates/theme.ts";
+import { useStyle } from "./style/StyleContext.tsx";
+import { alpha, fontStack, headline, shadowFor, tracking } from "./style/tokens.ts";
+import { Backdrop, Camera, clamp01, fitSize, Marker, useProgress, useReveal } from "./templates/parts.tsx";
+import { BOX, FULL_BOX_TOP } from "./templates/theme.ts";
 
 const FRAME: Size = { width: 1080, height: 1920 };
 const HALF = FRAME.height / 2;
@@ -12,6 +14,7 @@ const PUNCH_ZOOM = 1.1;
 
 export function Speaker({ video, crop, segments }: { video: string; crop: Rect; segments: RenderSegment[] }) {
   const frame = useCurrentFrame();
+  const style = useStyle();
   const active = segments.find((segment) => frame >= segment.from && frame < segment.from + segment.durationInFrames);
   const split = active?.kind === "visual" && active.layout === "split";
   const shotsSoFar = segments.filter((segment) => segment.from <= frame).length;
@@ -31,7 +34,7 @@ export function Speaker({ video, crop, segments }: { video: string; crop: Rect; 
           width: panel.width,
           height: panel.height,
           overflow: "hidden",
-          boxShadow: framed ? "0 30px 90px rgba(3,8,45,0.6)" : undefined,
+          boxShadow: framed ? shadowFor(style, "card") : undefined,
         }}
       >
         <Video src={staticFile(video)} style={{ position: "absolute", ...placement }} />
@@ -46,6 +49,8 @@ export function emphasisTop(crop: Rect): number {
 }
 
 export function VisualShot({ layout, children }: { layout: "split" | "full"; children: ReactNode }) {
+  const style = useStyle();
+  const shade = style.palette.backdrop[1];
   if (layout === "split") {
     return (
       <AbsoluteFill>
@@ -60,7 +65,7 @@ export function VisualShot({ layout, children }: { layout: "split" | "full"; chi
             top: HALF,
             width: FRAME.width,
             height: 160,
-            background: "linear-gradient(rgba(6,10,43,0.75), rgba(6,10,43,0))",
+            background: `linear-gradient(${alpha(shade, 0.75)}, ${alpha(shade, 0)})`,
           }}
         />
       </AbsoluteFill>
@@ -77,24 +82,41 @@ export function VisualShot({ layout, children }: { layout: "split" | "full"; chi
 }
 
 export function Emphasis({ word, index, top }: { word: EmphasisWord; index: number; top: number }) {
-  const progress = useReveal(0, 0, { damping: 11, stiffness: 220, mass: 0.6 });
-  const highlight = index % 2 === 1;
+  const style = useStyle();
+  const lively = style.motion === "lively";
+  const progress = useReveal(0, 0, lively ? { damping: 11, stiffness: 220, mass: 0.6 } : undefined);
+  const swipe = useProgress(0, 0.3, 5);
+  const { palette } = style;
+  const size = fitSize(word.text, { max: 190, min: 110, fits: 7 });
+  const text = headline(style, word.text);
+  const entrance = lively ? `scale(${1.7 - 0.7 * progress}) rotate(${(1 - progress) * -6}deg)` : `translateY(${(1 - progress) * 40}px)`;
+  const solid = index % 2 === 1 ? palette.accent : palette.onBackdrop;
+  const padding = "0 24px 10px";
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", paddingTop: top }}>
       <div
         style={{
-          fontFamily: `${theme.font}, Helvetica, Arial, sans-serif`,
-          fontSize: fitSize(word.text, { max: 190, min: 110, fits: 7 }),
-          fontWeight: 900,
-          letterSpacing: -4,
-          color: highlight ? theme.yellow : theme.white,
-          textShadow: "0 10px 40px rgba(0,0,0,0.55), 0 2px 0 rgba(0,0,0,0.25)",
+          position: "relative",
+          padding,
+          fontFamily: fontStack(style.type.display),
+          fontSize: size,
+          fontWeight: style.type.displayWeight,
+          letterSpacing: tracking(style, size),
+          lineHeight: 1.05,
+          color: style.emphasis === "solid" ? solid : style.emphasis === "outline" ? "transparent" : palette.onBackdrop,
+          WebkitTextStroke: style.emphasis === "outline" ? `4px ${palette.onBackdrop}` : undefined,
+          textShadow: style.emphasis === "highlight" ? undefined : `0 10px 40px ${alpha(palette.backdrop[1], 0.65)}`,
           opacity: clamp01(progress * 2),
-          transform: `scale(${1.7 - 0.7 * progress}) rotate(${(1 - progress) * -6}deg)`,
+          transform: entrance,
           whiteSpace: "nowrap",
         }}
       >
-        {word.text}
+        {text}
+        {style.emphasis === "highlight" && (
+          <Marker progress={swipe} padding={padding}>
+            {text}
+          </Marker>
+        )}
       </div>
     </AbsoluteFill>
   );

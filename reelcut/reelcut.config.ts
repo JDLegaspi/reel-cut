@@ -3,6 +3,7 @@ import type { ReelcutConfig } from "./src/config/schema.ts";
 const config: ReelcutConfig = {
   paths: {
     projectsDir: "projects",
+    stylesDir: "styles",
     ffmpeg: "ffmpeg",
     ffprobe: "ffprobe",
     ytDlp: "yt-dlp",
@@ -37,6 +38,11 @@ const config: ReelcutConfig = {
     leadMs: 40,
     minSegmentSeconds: 1.5,
     minFaceSeconds: 1,
+  },
+  styles: {
+    maxImages: 20,
+    pageTimeoutSeconds: 30,
+    reelFrames: 6,
   },
 };
 

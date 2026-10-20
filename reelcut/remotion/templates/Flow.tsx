@@ -1,11 +1,13 @@
 import { useCurrentFrame } from "remotion";
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
+import type { ColorRole } from "../../src/schemas/style.ts";
+import { useStyle } from "../style/StyleContext.tsx";
+import { alpha, fontStack, headline, roleColor, shadowFor } from "../style/tokens.ts";
 import { Glyph, iconName } from "./icons.tsx";
 import { clamp01, pop, rise, useFloat, useReveal } from "./parts.tsx";
-import { softShadow, theme } from "./theme.ts";
 
-const ACCENTS = [theme.blue, "#7C5CFF", theme.green, "#F97316"];
+const ROLES: ColorRole[] = ["tint1", "tint2", "positive", "tint4"];
 
 const schema = z.object({
   steps: z
@@ -27,28 +29,33 @@ type Step = Props["steps"][number];
 const TILE = 210;
 const ROW_Y = 300;
 
-function Node({ step, x, at, index, color }: { step: Step; x: number; at: number | undefined; index: number; color: string }) {
+function Node({ step, x, at, index, role }: { step: Step; x: number; at: number | undefined; index: number; role: ColorRole }) {
   const progress = useReveal(at);
   const bob = useFloat(8, 70, index * 1.1);
+  const style = useStyle();
+  const { palette } = style;
+  const color = roleColor(style, role);
+  const outlined = style.icons.tiles === "outline";
   return (
     <div style={{ position: "absolute", left: x - TILE / 2, top: ROW_Y + bob, width: TILE, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
       <div
         style={{
           width: TILE,
           height: TILE,
-          borderRadius: 56,
-          backgroundColor: theme.paper,
-          boxShadow: `${softShadow}, inset 0 -10px 0 ${color}22`,
+          borderRadius: Math.min(TILE / 2, Math.round((TILE * 0.27 * style.shape.radius) / 40)),
+          backgroundColor: palette.surface,
+          border: outlined ? `5px solid ${color}` : undefined,
+          boxShadow: [shadowFor(style, "small"), `inset 0 -10px 0 ${alpha(color, 0.14)}`].filter(Boolean).join(", "),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           ...pop(progress),
         }}
       >
-        <Glyph name={step.icon} size={112} color={color} strokeWidth={2.3} />
+        <Glyph name={step.icon} size={112} color={color} />
       </div>
-      <div style={{ fontSize: 44, fontWeight: 900, color: theme.white, textAlign: "center", letterSpacing: -1, lineHeight: 1.05, ...rise(progress, 30) }}>
-        {step.label}
+      <div style={{ fontFamily: fontStack(style.type.display), fontSize: 44, fontWeight: style.type.displayWeight, color: palette.onBackdrop, textAlign: "center", letterSpacing: -1, lineHeight: 1.05, ...rise(progress, 30) }}>
+        {headline(style, step.label)}
       </div>
     </div>
   );
@@ -57,19 +64,20 @@ function Node({ step, x, at, index, color }: { step: Step; x: number; at: number
 function Link({ from, to, at }: { from: number; to: number; at: number | undefined }) {
   const frame = useCurrentFrame();
   const progress = useReveal(at, -4);
+  const { palette } = useStyle();
   const start = from + TILE / 2 + 16;
   const end = to - TILE / 2 - 16;
   const y = ROW_Y + TILE / 2;
   const length = (end - start) * clamp01(progress);
   return (
     <svg style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }} width={1080} height={960}>
-      <line x1={start} y1={y} x2={start + length} y2={y} stroke="rgba(255,255,255,0.5)" strokeWidth={8} strokeLinecap="round" strokeDasharray="2 18" />
+      <line x1={start} y1={y} x2={start + length} y2={y} stroke={alpha(palette.onBackdrop, 0.5)} strokeWidth={8} strokeLinecap="round" strokeDasharray="2 18" />
       {progress > 0.9 &&
         [0, 1, 2].map((dot) => {
           const t = ((frame / 26 + dot / 3) % 1) * (end - start);
-          return <circle key={dot} cx={start + t} cy={y} r={11} fill={theme.yellow} />;
+          return <circle key={dot} cx={start + t} cy={y} r={11} fill={palette.accent} />;
         })}
-      {progress > 0.9 && <path d={`M${end - 22},${y - 20} L${end},${y} L${end - 22},${y + 20}`} stroke={theme.yellow} strokeWidth={8} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+      {progress > 0.9 && <path d={`M${end - 22},${y - 20} L${end},${y} L${end - 22},${y + 20}`} stroke={palette.accent} strokeWidth={8} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 }
@@ -84,7 +92,7 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
         <Link key={step.key} from={xs[k]!} to={xs[k + 1]!} at={at[step.key]} />
       ))}
       {props.steps.map((step, k) => (
-        <Node key={step.key} step={step} x={xs[k]!} at={at[step.key]} index={k} color={ACCENTS[k % ACCENTS.length]!} />
+        <Node key={step.key} step={step} x={xs[k]!} at={at[step.key]} index={k} role={ROLES[k % ROLES.length]!} />
       ))}
     </div>
   );

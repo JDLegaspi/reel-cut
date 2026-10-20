@@ -6,10 +6,14 @@ import { probe } from "@reel/shared/media/probe.ts";
 import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
 import { describe, expect, test } from "vitest";
-import { PREVIEW_ID, type PreviewProps, type RenderProps } from "../remotion/props.ts";
+import { PREVIEW_ID, SHEET_ID, type PreviewProps, type RenderProps, type SheetProps } from "../remotion/props.ts";
 import { TEMPLATES } from "../remotion/templates/registry.ts";
 import { loadConfig } from "../src/config/load.ts";
 import { createRemotionRenderer, REMOTION_ENTRY } from "../src/render/remotion.ts";
+import type { Style } from "../src/schemas/style.ts";
+import { DEFAULT_STYLE } from "../src/style/default.ts";
+import { resolveFontFiles } from "../src/style/fonts.ts";
+import { LIGHT_STYLE, TEST_STYLES } from "./fixtures/styles.ts";
 
 function hasFfmpeg() {
   try {
@@ -29,6 +33,18 @@ function meanLuma(video: string, seconds: number): number {
   return pixel[0]!;
 }
 
+function pixelAt(image: string, x: number, y: number): number[] {
+  return [...execFileSync("ffmpeg", ["-loglevel", "error", "-i", image, "-vf", `crop=1:1:${x}:${y}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])];
+}
+
+function rgb(hex: string): number[] {
+  return [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
+}
+
+async function previewProps(style: Style, template: string, layout: "split" | "full", props: unknown): Promise<PreviewProps> {
+  return { layout, template, props: props as Record<string, unknown>, at: {}, style, fonts: await resolveFontFiles(style) };
+}
+
 describe.skipIf(!hasFfmpeg())("remotion renderer", () => {
   test("plays the source and covers the planned frames with a placeholder", async () => {
     const dir = await mkdtemp(join(tmpdir(), "reelcut-remotion-"));
@@ -45,6 +61,8 @@ describe.skipIf(!hasFfmpeg())("remotion renderer", () => {
       fps: 25,
       durationInFrames: 50,
       speakerCrop: { x: 0, y: 0, width: 1080, height: 1920 },
+      style: DEFAULT_STYLE,
+      fonts: [],
       emphasis: [],
       segments: [
         { kind: "placeholder", id: "seg-01", from: 25, durationInFrames: 25, description: "Countdown card", spoken: "hello world" },
@@ -61,17 +79,46 @@ describe.skipIf(!hasFfmpeg())("remotion renderer", () => {
     expect(meanLuma(output, 1.5)).toBeLessThan(60);
   }, 300_000);
 
-  test("renders every template's example in both layouts", async () => {
+  test("renders every template's example in both layouts, in two different styles", async () => {
     const dir = await mkdtemp(join(tmpdir(), "reelcut-templates-"));
     const serveUrl = await bundle({ entryPoint: REMOTION_ENTRY });
-    for (const template of TEMPLATES) {
-      for (const layout of ["split", "full"] as const) {
-        const inputProps: PreviewProps = { layout, template: template.name, props: template.example as Record<string, unknown>, at: {} };
-        const composition = await selectComposition({ serveUrl, id: PREVIEW_ID, inputProps });
-        const output = join(dir, `${template.name}-${layout}.png`);
-        await renderStill({ composition, serveUrl, output, inputProps, frame: 60 });
-        expect((await stat(output)).size, `${template.name} ${layout}`).toBeGreaterThan(20_000);
+    for (const [name, style] of TEST_STYLES) {
+      for (const template of TEMPLATES) {
+        for (const layout of ["split", "full"] as const) {
+          const inputProps = await previewProps(style, template.name, layout, template.example);
+          const composition = await selectComposition({ serveUrl, id: PREVIEW_ID, inputProps });
+          const output = join(dir, `${name}-${template.name}-${layout}.png`);
+          await renderStill({ composition, serveUrl, output, inputProps, frame: 60 });
+          expect((await stat(output)).size, `${name} ${template.name} ${layout}`).toBeGreaterThan(20_000);
+        }
       }
     }
-  }, 600_000);
+  }, 900_000);
+
+  test("draws the backdrop in the style's colours", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "reelcut-backdrop-"));
+    const serveUrl = await bundle({ entryPoint: REMOTION_ENTRY });
+    const corners: Record<string, number[]> = {};
+    for (const [name, style] of TEST_STYLES) {
+      const inputProps = await previewProps(style, "Stat", "split", TEMPLATES[0]!.example);
+      const composition = await selectComposition({ serveUrl, id: PREVIEW_ID, inputProps });
+      const output = join(dir, `${name}.png`);
+      await renderStill({ composition, serveUrl, output, inputProps, frame: 30 });
+      corners[name] = pixelAt(output, 20, 20);
+    }
+    const [r, g, b] = corners.default!;
+    expect(b).toBeGreaterThan(r! + 60);
+    expect(b).toBeGreaterThan(g! + 60);
+    corners.light!.forEach((channel, k) => expect(Math.abs(channel - rgb(LIGHT_STYLE.palette.backdrop[0])[k]!)).toBeLessThanOrEqual(12));
+  }, 300_000);
+
+  test("renders the style sheet", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "reelcut-sheet-"));
+    const serveUrl = await bundle({ entryPoint: REMOTION_ENTRY });
+    const inputProps: SheetProps = { style: LIGHT_STYLE, fonts: await resolveFontFiles(LIGHT_STYLE) };
+    const composition = await selectComposition({ serveUrl, id: SHEET_ID, inputProps });
+    const output = join(dir, "sheet.png");
+    await renderStill({ composition, serveUrl, output, inputProps, frame: 90 });
+    expect(await probe("ffprobe", output)).toMatchObject({ width: 1620, height: 1920 });
+  }, 300_000);
 });

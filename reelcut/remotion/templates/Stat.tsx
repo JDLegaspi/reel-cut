@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
+import { useStyle } from "../style/StyleContext.tsx";
+import { fontStack, headline, mix, shadowFor, tracking } from "../style/tokens.ts";
 import { Glyph, iconName } from "./icons.tsx";
-import { Card, clamp01, fitSize, pop, useFloat, useProgress, useReveal } from "./parts.tsx";
-import { theme } from "./theme.ts";
+import { Card, clamp01, fitSize, IconTile, pop, useFloat, useProgress, useReveal } from "./parts.tsx";
 
 const schema = z.object({
   value: z.number().describe("the number exactly as spoken, without its unit: 800000 for 'eight hundred thousand'"),
@@ -29,6 +30,9 @@ function chartPath(trend: "up" | "down", width: number, height: number): { line:
 function Coin({ x, y, phase, at, symbol }: { x: number; y: number; phase: number; at: number | undefined; symbol: string }) {
   const progress = useReveal(at, 8 + phase * 4);
   const float = useFloat(14, 80, phase);
+  const style = useStyle();
+  const gold = style.palette.accent;
+  const edge = mix(gold, style.palette.onAccent, 0.35);
   return (
     <div
       style={{
@@ -38,20 +42,22 @@ function Coin({ x, y, phase, at, symbol }: { x: number; y: number; phase: number
         width: 110,
         height: 110,
         borderRadius: 55,
-        background: "radial-gradient(circle at 35% 30%, #FFF3B0, #FFD43B 45%, #E0A800)",
-        boxShadow: "0 16px 30px rgba(3,8,45,0.4), inset 0 -6px 0 rgba(160,110,0,0.35)",
+        background: `radial-gradient(circle at 35% 30%, ${mix(gold, style.palette.surface, 0.6)}, ${gold} 45%, ${mix(gold, style.palette.onAccent, 0.15)})`,
+        boxShadow: [shadowFor(style, "small"), `inset 0 -6px 0 ${edge}`].filter(Boolean).join(", "),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         ...pop(progress),
       }}
     >
-      <Glyph name={symbol} size={60} color="#8A5A00" strokeWidth={2.8} />
+      <Glyph name={symbol} size={60} color={edge} strokeWidth={2.8} />
     </div>
   );
 }
 
 function Component({ props, at }: { props: Props; at: Record<string, number> }) {
+  const style = useStyle();
+  const { palette } = style;
   const card = useReveal(0);
   const count = useProgress(at.value, 1.1);
   const chart = useProgress(at.value, 1.4, 4);
@@ -60,9 +66,11 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
   const shown = (props.value * count).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   const full = `${props.prefix ?? ""}${props.value.toLocaleString("en-US")}${props.suffix ?? ""}`;
   const tilt = 1 - clamp01(card);
-  const trendColor = props.trend === "down" ? theme.red : theme.green;
+  const trendColor = props.trend === "down" ? palette.negative : palette.positive;
   const paths = props.trend === "none" ? null : chartPath(props.trend, 740, 200);
-  const money = props.prefix === "$" || props.prefix === "€" || props.prefix === "£";
+  const money = style.flourishes.coins && (props.prefix === "$" || props.prefix === "€" || props.prefix === "£");
+  const angle = style.shape.tilt ? `rotateX(${8 + tilt * 20}deg) rotateY(${-10 - tilt * 14}deg)` : `translateY(${tilt * 60}px)`;
+  const size = fitSize(full, { max: 150, min: 88, fits: 7 });
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", perspective: 1800 }}>
       {money && (
@@ -76,40 +84,27 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
         style={{
           width: 840,
           padding: "52px 52px 40px",
-          transform: `rotateX(${8 + tilt * 20}deg) rotateY(${-10 - tilt * 14}deg) scale(${0.8 + 0.2 * card})`,
+          transform: `${angle} scale(${0.8 + 0.2 * card})`,
           opacity: clamp01(card * 2),
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24, ...{ opacity: clamp01(label * 2) } }}>
-          <div
-            style={{
-              width: 92,
-              height: 92,
-              borderRadius: 26,
-              background: `linear-gradient(135deg, ${theme.blue}, #6A8BFF)`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Glyph name={props.icon} size={54} color="#fff" />
-          </div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: theme.inkMuted }}>{props.label}</div>
+          <IconTile icon={props.icon} size={92} role="tint1" />
+          <div style={{ fontSize: 42, fontWeight: 700, color: palette.onSurfaceMuted }}>{props.label}</div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginTop: 26 }}>
           <div
             style={{
-              fontSize: fitSize(full, { max: 150, min: 88, fits: 7 }),
-              fontWeight: 900,
-              letterSpacing: -6,
+              fontFamily: fontStack(style.type.display),
+              fontSize: size,
+              fontWeight: style.type.displayWeight,
+              letterSpacing: tracking(style, size),
               lineHeight: 1,
               fontVariantNumeric: "tabular-nums",
               whiteSpace: "nowrap",
             }}
           >
-            {props.prefix}
-            {shown}
-            {props.suffix}
+            {headline(style, `${props.prefix ?? ""}${shown}${props.suffix ?? ""}`)}
           </div>
           {props.trend !== "none" && (
             <div
@@ -117,7 +112,7 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
                 marginBottom: 18,
                 padding: "10px 18px",
                 borderRadius: 999,
-                backgroundColor: props.trend === "up" ? "#DCFCE7" : "#FFE4E6",
+                backgroundColor: mix(trendColor, palette.surface, 0.82),
                 display: "flex",
                 ...pop(clamp01(count * 1.4)),
               }}

@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
-import { Glyph, iconName } from "./icons.tsx";
-import { Card, clamp01, fitSize, pop, rise, useFloat, useReveal } from "./parts.tsx";
-import { softShadow, theme } from "./theme.ts";
+import { useStyle } from "../style/StyleContext.tsx";
+import { alpha, fontStack, headline, shadowFor, tracking } from "../style/tokens.ts";
+import { iconName } from "./icons.tsx";
+import { Card, clamp01, fitSize, IconTile, pop, rise, useFloat, useReveal } from "./parts.tsx";
 
 const schema = z.object({
   position: z
@@ -21,9 +22,10 @@ type Props = z.infer<typeof schema>;
 
 function Badge({ text, at, index }: { text: string; at: number | undefined; index: number }) {
   const progress = useReveal(at, index * 3);
+  const style = useStyle();
   return (
-    <div style={{ padding: "14px 30px", borderRadius: 999, backgroundColor: theme.yellow, color: theme.ink, fontSize: 40, fontWeight: 900, boxShadow: softShadow, ...pop(progress) }}>
-      {text}
+    <div style={{ padding: "14px 30px", borderRadius: 999, backgroundColor: style.palette.accent, color: style.palette.onAccent, fontSize: 40, fontWeight: 800, boxShadow: shadowFor(style, "small"), ...pop(progress) }}>
+      {headline(style, text)}
     </div>
   );
 }
@@ -33,18 +35,22 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
   const position = useReveal(at.position);
   const subtitle = useReveal(at.subtitle);
   const bob = useFloat(10, 80);
+  const style = useStyle();
+  const { palette } = style;
   const { position: place } = props;
+  const titleSize = fitSize(props.title, { max: 72, min: 48, fits: 18 });
+  const angle = style.shape.tilt ? `rotateX(${(1 - card) * 25 + 4}deg) rotateY(-6deg)` : "";
   return (
     <div style={{ position: "absolute", inset: 0, perspective: 1800 }}>
       {place && (
         <div style={{ position: "absolute", left: 80, top: 70, display: "flex", alignItems: "center", gap: 24, ...pop(position) }}>
-          <div style={{ width: 180, height: 180, borderRadius: 90, backgroundColor: theme.yellow, color: theme.ink, fontSize: 120, fontWeight: 900, letterSpacing: -6, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: softShadow }}>
+          <div style={{ width: 180, height: 180, borderRadius: 90, backgroundColor: palette.accent, color: palette.onAccent, fontFamily: fontStack(style.type.display), fontSize: 120, fontWeight: style.type.displayWeight, letterSpacing: tracking(style, 120), display: "flex", alignItems: "center", justifyContent: "center", boxShadow: shadowFor(style, "small") }}>
             {place.index}
           </div>
           {place.total !== null && (
             <div style={{ display: "flex", gap: 12 }}>
               {Array.from({ length: Math.min(place.total, 10) }, (_, k) => (
-                <div key={k} style={{ width: 44, height: 14, borderRadius: 7, backgroundColor: k < place.index ? theme.yellow : "rgba(255,255,255,0.3)" }} />
+                <div key={k} style={{ width: 44, height: 14, borderRadius: 7, backgroundColor: k < place.index ? palette.accent : alpha(palette.onBackdrop, 0.3) }} />
               ))}
             </div>
           )}
@@ -60,16 +66,14 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
           display: "flex",
           gap: 40,
           alignItems: "center",
-          transform: `rotateX(${(1 - card) * 25 + 4}deg) rotateY(-6deg) translateY(${(1 - card) * 120}px)`,
+          transform: `${angle} translateY(${(1 - card) * 120}px)`,
           opacity: clamp01(card * 2),
         }}
       >
-        <div style={{ width: 190, height: 190, borderRadius: 52, flexShrink: 0, background: `linear-gradient(140deg, ${theme.blue}, #7C5CFF)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Glyph name={props.icon} size={110} color="#fff" />
-        </div>
+        <IconTile icon={props.icon} size={190} role="tint1" style={{ flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: fitSize(props.title, { max: 72, min: 48, fits: 18 }), fontWeight: 900, letterSpacing: -2, lineHeight: 1.04 }}>{props.title}</div>
-          {props.subtitle && <div style={{ fontSize: 40, fontWeight: 700, color: theme.inkMuted, marginTop: 14, ...rise(subtitle, 20) }}>{props.subtitle}</div>}
+          <div style={{ fontFamily: fontStack(style.type.display), fontSize: titleSize, fontWeight: style.type.displayWeight, letterSpacing: tracking(style, titleSize) / 2, lineHeight: 1.04 }}>{headline(style, props.title)}</div>
+          {props.subtitle && <div style={{ fontSize: 40, fontWeight: 700, color: palette.onSurfaceMuted, marginTop: 14, ...rise(subtitle, 20) }}>{props.subtitle}</div>}
         </div>
       </Card>
       {props.badges.length > 0 && (

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { access, mkdtemp, readFile, stat, utimes, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { probe } from "@reel/shared/media/probe.ts";
@@ -16,6 +16,9 @@ import type { ReelcutConfig } from "../src/config/schema.ts";
 import { createContext } from "../src/pipeline/context.ts";
 import { findStage, initProject, runPipeline, runStage } from "../src/pipeline/runner.ts";
 import type { PlannerOutput, VisualPlan } from "../src/schemas/visualPlan.ts";
+import type { ProjectStyle, Style } from "../src/schemas/style.ts";
+import { DEFAULT_STYLE } from "../src/style/default.ts";
+import { LIGHT_STYLE } from "./fixtures/styles.ts";
 
 function hasFfmpeg() {
   try {
@@ -113,17 +116,37 @@ describe.skipIf(!hasFfmpeg())("pipeline", () => {
 
   function context(
     name: string,
-    opts: { config?: ReelcutConfig; plans?: PlannerOutput[]; planCalls?: PlanInput[]; renders?: RenderJob[] } = {},
+    opts: { config?: ReelcutConfig; plans?: PlannerOutput[]; planCalls?: PlanInput[]; renders?: RenderJob[]; logs?: string[] } = {},
   ) {
     return createContext({
       name,
       projectsRoot: join(root, "projects"),
+      stylesRoot: join(root, "styles"),
       config: opts.config ?? loadConfig(),
       transcriber: () => createMockTranscriber(transcript),
       planner: () => createMockPlanner(opts.plans ?? [noVisuals], opts.planCalls),
       renderer: () => fakeRenderer(opts.renders),
-      log: () => {},
+      log: (message) => opts.logs?.push(message),
     });
+  }
+
+  async function writeStyle(name: string, style: Style) {
+    await mkdir(join(root, "styles", name), { recursive: true });
+    const path = join(root, "styles", name, "style.json");
+    await writeFile(path, JSON.stringify(style));
+    const later = new Date(Date.now() + 10000);
+    await utimes(path, later, later);
+  }
+
+  async function editProjectStyle(path: string, edit: (style: ProjectStyle) => ProjectStyle, seconds: number) {
+    const current: ProjectStyle = JSON.parse(await readFile(path, "utf8"));
+    await writeFile(path, JSON.stringify(edit(current)));
+    const later = new Date(Date.now() + seconds * 1000);
+    await utimes(path, later, later);
+  }
+
+  function ranStages(reports: { stage: string; ran: boolean }[]) {
+    return reports.filter((report) => report.ran).map((report) => report.stage);
   }
 
   function fileSource(path: string): ReelSource {
@@ -376,6 +399,67 @@ describe.skipIf(!hasFfmpeg())("pipeline", () => {
 
     await expect(runStage(ctx, findStage("render"), { force: false })).rejects.toThrow(
       "visual_plan.json breaks these rules:\n- segment 1 is on screen for 0.4s",
+    );
+  });
+
+  test("renders in the built-in style when the project has none", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("unstyled", { renders });
+    await initProject(ctx, { source: fileSource(input), ...options });
+    await runPipeline(ctx, { force: false });
+    expect(renders[0]!.props.style).toEqual(DEFAULT_STYLE);
+    expect(renders[0]!.props.fonts.length).toBeGreaterThan(0);
+  });
+
+  test("renders in the chosen style with the project's overrides on top, re-rendering only", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("styled", { renders });
+    await writeStyle("brand", LIGHT_STYLE);
+    await initProject(ctx, { source: fileSource(input), ...options, style: "brand" });
+    await runPipeline(ctx, { force: false });
+    expect(JSON.parse(await readFile(ctx.paths.style, "utf8"))).toEqual({ version: 1, base: "brand", overrides: {} });
+    expect(renders.at(-1)!.props.style).toEqual(LIGHT_STYLE);
+    expect(renders.at(-1)!.props.fonts.map((font) => font.family)).toContain("Space Grotesk");
+
+    await editProjectStyle(ctx.paths.style, (style) => ({ ...style, overrides: { palette: { accent: "#123456" } } }), 20);
+    expect(ranStages(await runPipeline(ctx, { force: false }))).toEqual(["render"]);
+    expect(renders.at(-1)!.props.style.palette).toEqual({ ...LIGHT_STYLE.palette, accent: "#123456" });
+
+    await initProject(ctx, { source: fileSource(input), ...options, style: "brand" });
+    expect(JSON.parse(await readFile(ctx.paths.style, "utf8")).overrides).toEqual({ palette: { accent: "#123456" } });
+  });
+
+  test("re-renders when the base style changes and nothing else", async () => {
+    const renders: RenderJob[] = [];
+    const ctx = context("styled", { renders });
+    const later = new Date(Date.now() + 30000);
+    await writeStyle("brand", { ...LIGHT_STYLE, notes: "Edited by hand." });
+    await utimes(join(root, "styles", "brand", "style.json"), later, later);
+    expect(ranStages(await runPipeline(ctx, { force: false }))).toEqual(["render"]);
+    expect(renders.at(-1)!.props.style.notes).toBe("Edited by hand.");
+  });
+
+  test("renders with a warning when only the contrast of a hand edit fails", async () => {
+    const logs: string[] = [];
+    const ctx = context("styled", { logs });
+    await editProjectStyle(ctx.paths.style, (style) => ({ ...style, overrides: { palette: { onSurface: "#eeeeee" } } }), 40);
+    await runStage(ctx, findStage("render"), { force: false });
+    expect(logs.some((line) => line.includes("warning:") && line.includes("palette.onSurface"))).toBe(true);
+  });
+
+  test("fails on a broken hand-edited style, naming the setting", async () => {
+    const ctx = context("styled");
+    await editProjectStyle(ctx.paths.style, (style) => ({ ...style, overrides: { palette: { accent: "yellow" } } }), 50);
+    await expect(runStage(ctx, findStage("render"), { force: false })).rejects.toThrow(/style\.json breaks these rules:\n- overrides\.palette\.accent: must be a colour/);
+  });
+
+  test("names a missing style and how to make it", async () => {
+    const ctx = context("styled");
+    await editProjectStyle(ctx.paths.style, (style) => ({ ...style, overrides: {} }), 0);
+    await initProject(ctx, { source: fileSource(input), ...options, style: "missing" });
+    await editProjectStyle(ctx.paths.style, (style) => style, 60);
+    await expect(runStage(ctx, findStage("render"), { force: false })).rejects.toThrow(
+      'Style "missing" does not exist. Make it with: reelcut style create missing --from <reference>',
     );
   });
 });

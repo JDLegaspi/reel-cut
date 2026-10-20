@@ -108,16 +108,90 @@ One file per template in `reelcut/remotion/templates/` exporting `defineTemplate
 
 - Every template draws into a 1080×960 box: the top half in `split`, centred 380 px from the top in `full`.
 - Numbers declared by `spokenNumbers` and any digits inside `spokenTexts` (labels, badges, callouts) must be said in the segment.
-- Templates (revised 2026-10-19, replacing the first text-card set): `Stat` (tilted dashboard card, number counting up, trend chart, coins), `Growth` (curve drawing in, result badge bursting at the peak), `Versus` (good and bad cards built from icon clusters), `Concept` (glowing icon with orbiting icons and pulse rings), `Flow` (icon tiles with flowing connectors), `Phone` (phone mockup with a drawn screen: creator video with a tapped sticker, paywall, notifications, app listing), `Logos`, `Kinetic` (slamming words), `Countdown`, `Checklist` (self-drawing ticks and crosses).
-- Look: vivid blue backdrop with drifting light and a moving dot grid, white cards with deep shadows and a slight 3D tilt, yellow, green and red accents, Inter (`@remotion/google-fonts`). Elements spring in, float, count up and draw themselves.
+- Templates (revised 2026-10-19, replacing the first text-card set): `Stat` (tilted dashboard card, number counting up, trend chart, coins), `Growth` (curve drawing in, result badge bursting at the peak), `Versus` (good and bad cards built from icon clusters), `Concept` (glowing icon with orbiting icons and pulse rings), `Flow` (icon tiles with flowing connectors), `Phone` (phone mockup with a drawn screen: creator video with a tapped sticker, paywall, notifications, app listing), `Logos`, `Kinetic` (short lines rising in one after another, with a marker swipe for highlights; toned down 2026-10-20 after the all-caps slam with shake felt tacky; lines written in capitals are turned into sentence case, and the style decides whether headlines are uppercase), `Countdown`, `Checklist` (self-drawing ticks and crosses).
+- Look: set by the style (see Styles). The built-in `reelcut` style is a vivid blue backdrop with drifting light and a moving dot grid, white cards with deep shadows and a slight 3D tilt, yellow, green and red accents, in Inter. Elements spring in, float, count up and draw themselves.
+- `Concept.color` and `Phone.app.color` take colour roles; the colour names in plans made before styles (`blue`, `violet`, `orange`…) are mapped onto roles.
 - `TemplatePreview` composition renders one template with its `example` props, for Studio and for tests.
+
+## Styles (milestone 5, built and signed off 2026-10-20)
+
+Every visual's look comes from a style: data with a closed schema instead of code. A style is made from references (brand sites, logos, GitHub repos, other creators' reels, mood images) by one Claude request, and can be edited by hand. reelcut is meant to become multi-tenant, with users changing their own style through a form, so every value is a choice from a fixed set or a number within limits. Nothing in a style runs as code or loads from an arbitrary URL.
+
+- **A style is look only.** The plan never depends on it, so changing the style only re-renders. Template props stop naming colours: `Concept.color` and `Phone.app.color` become roles (accent, positive, negative, tint 1–4), so a plan works in any style.
+- **Schema** (`reelcut/src/schemas/style.ts`), shared by the generator, hand edits, render and, later, the settings form:
+  - palette: backdrop (two gradient stops, equal for flat), surface, on-surface, on-surface muted, on-backdrop, on-backdrop muted, accent, positive, negative, four tints for icon tiles.
+  - type: display and body font (any of the 1,837 Google Fonts that `@remotion/google-fonts` loads by name), display weight, letter spacing (tight or normal), headline case (as written or uppercase).
+  - shape: corner radius (0–48 px), cards (solid, outline or glass), shadow (none, soft or deep), tilt on or off.
+  - backdrop: gradient, flat, grid, grain or spotlight, with ambient drift on or off.
+  - motion: calm or lively (spring presets, float amount, stagger).
+  - flourishes: bursts, coins, glow and shake, each on or off.
+  - icons: stroke width, and tiles filled, outlined or bare.
+  - emphasis words: solid, highlight or outline.
+  - notes: Claude's short reasoning, for whoever reviews the style.
+- **Checks in code**: colours are valid, fonts exist, values are in range, and text contrast holds (on-surface on surface and on-backdrop on both backdrop stops; 4.5:1 for small text, 3:1 for large). A generated style must pass, with one retry listing the problems, as for the plan. A hand-edited style that fails only on contrast renders with a warning.
+- **Built-in default**: today's blue look with shake off. Projects without a style use it, and `--style default` switches a project back to it.
+
+### Making a style
+
+`reelcut style create <name> --from <reference> [--from <reference> …]` writes `reelcut/styles/<name>/` (gitignored, like projects):
+
+| File | Contents |
+| --- | --- |
+| `sources.json` | the `--from` values |
+| `references/`, `references.json` | what was gathered, and the facts read from it |
+| `style.raw.json` | Claude's raw responses |
+| `style.json` | the style, hand-editable |
+| `sheet.png` | every template drawn in the style, plus a speaker shot with emphasis words |
+
+It uses the same make-style runner as projects (stages gather, derive, sheet), so after a hand edit `reelcut style sheet <name>` only redraws the sheet.
+
+What each kind of reference gives:
+
+- **Website**: screenshots at desktop and phone width (the first screen and one further down), plus facts read from the page: colours weighted by the area they cover, `:root` CSS variables, and the fonts of body text, headings and buttons. The page's real CSS is preferred over guessing from pixels. The browser is puppeteer-core driving the Chrome Headless Shell that Remotion already downloads (`ensureBrowser()` returns its path).
+- **GitHub repo**: the repo's homepage, treated as a website, when it has one; images in its README (logos, banners); and the owner's avatar. GitHub's own page is never screenshotted, since it shows GitHub's style rather than the project's.
+- **Reel**: downloaded and sampled with the shared download and frames code. Stills give the look but not the movement.
+- **Image or logo**, as a file or URL: used as is. SVGs are rasterised in the browser.
+
+The derive stage sends one Claude request with the references (images resized for the API), the facts and the style schema, and gets a style back through structured output.
+
+### Using a style
+
+- `reelcut run <input> --style <name>` writes the project's `style.json`: `{ "version": 1, "base": "<name>", "overrides": {} }`. `overrides` holds any part of a style for this project only, deep-merged over the base. This is the split between a tenant's brand style and per-project changes that the multi-tenant version needs.
+- render's inputs gain the project's `style.json` and the base style's `style.json`, so editing either re-renders and nothing else.
+- In Remotion, the resolved style is part of the render props and templates read it through a `useStyle()` context instead of importing `theme`. The colours written straight into templates (about 80) move onto palette roles, and fonts load by name at render time.
+- Later, Remotion Player can preview a style on the user's own video in the browser without a server render.
+
+### Not in this milestone
+
+- Template packs with a different visual language (hand-drawn, paper cut-out, 3D, photo collage). Those need new components and are built separately.
+- Putting the brand's logo on the video.
+- Fetching user-supplied URLs safely on a server (blocking private addresses, size and time limits). That is needed once reelcut is multi-tenant; for now the CLI fetches what it is given.
+
+### How it is judged
+
+Two or three styles made from real references of different kinds, each shown as its sheet and as ig-DZdNqU3vaF8 rendered in it.
+
+### Settled while building
+
+- Fonts are resolved in Node (`resolveFontFiles`: each family's nearest available weights, latin and latin-ext files) and passed in the render props as `fonts`, which the composition loads with `FontFace`. Loading them by name inside the bundle would make webpack bundle all 1,838 font modules on every render.
+- Style names are lowercase letters, digits and dashes, so a name can never point outside `reelcut/styles/`.
+- `style.json` rejects unknown keys, so a misspelt setting is an error rather than silently ignored.
+- Website colours come from a grid of points on the first two screens (the colour actually painted at each point) and every colour is normalised through a canvas, so `oklch()` and `hsl()` values come out as hex.
+- Images keep PNG only when they have transparency; photos and screenshots are JPEG, which keeps them under the API's per-image limit.
+- A GitHub homepage that fails to load is skipped; the README images and owner avatar are still used.
+- `Placeholder` (hand-written placeholder segments) keeps its fixed debug look.
+- The sheet's emphasis tile shows the emphasis words on the backdrop; a style has no speaker video to show.
+- Contrast also covers `accent` on both backdrop colours, since every other emphasis word is drawn in the accent.
+- Reference safety: SVGs are drawn as images (`data:` URI, scripts off), so they can't pull in local files; downloaded images are decoded only as PNG, JPEG, GIF or WebP, chosen from their first bytes, so a disguised playlist can't make ffmpeg read local files; GitHub homepages must be http(s); a GitHub URL that isn't a repo is refused, since it would only show GitHub's own style. If headless Chrome won't start, only the references that need it fail.
+- Settings under `styles` in `reelcut.config.ts`: `maxImages` (20), `pageTimeoutSeconds` (30), `reelFrames` (6). `GITHUB_TOKEN`, when set, raises GitHub's rate limit.
 
 ## Milestones
 
 1. Scaffold, config, download, ingest, transcribe. (Done; restored on `@reel/shared` in the 2026-10-18 split.)
 2. Retake detection and cutting.
 3. Visual planning; every non-face segment rendered as a placeholder. (Done; signed off 2026-10-19.)
-4. Template library, layouts and word-synced reveals. (First version built 2026-10-19; redesigned the same day after feedback that it lacked flair. Awaiting sign-off.)
-5. Captions, transitions, edit report, polish.
+4. Template library, layouts and word-synced reveals. (First version built 2026-10-19; redesigned the same day after feedback that it lacked flair; Kinetic toned down 2026-10-20. Signed off 2026-10-20.)
+5. Styles from references (above). Moved ahead of captions on 2026-10-20; built and signed off the same day.
+6. Captions, transitions, edit report, polish.
 
 Next up is the visuals (milestones 3 and 4), judged on downloaded talking-head reels that have no visuals of their own: reelcut should add visuals to the speaker. Downloaded reels are already edited, so retake cutting (milestone 2) has little to do on them and is best tested on raw recordings.
