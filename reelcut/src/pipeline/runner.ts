@@ -23,7 +23,7 @@ export const { stages: STAGES, findStage, runStage, runPipeline } = createPipeli
 
 export async function initProject(
   ctx: ReelcutContext,
-  opts: { source: ReelSource; retakeWord: string; aggressive: boolean; speakerCrop?: Rect | null; style?: string | null },
+  opts: { source: ReelSource; retakeWord: string; aggressive: boolean; face?: boolean; speakerCrop?: Rect | null; style?: string | null },
 ): Promise<void> {
   await mkdir(ctx.paths.dir, { recursive: true });
   const project: Project = {
@@ -31,6 +31,7 @@ export async function initProject(
     source: opts.source.kind === "file" ? { kind: "file", path: resolve(opts.source.path) } : opts.source,
     retakeWord: opts.retakeWord,
     aggressive: opts.aggressive,
+    face: opts.face ?? true,
   };
   await writeIfChanged(ctx.paths.project, project);
 

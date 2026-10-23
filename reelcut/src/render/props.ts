@@ -4,9 +4,11 @@ import type { FontFile, RenderProps, RenderSegment } from "../../remotion/props.
 import { findTemplate } from "../../remotion/templates/registry.ts";
 import type { Style } from "../schemas/style.ts";
 import { segmentWindow } from "../plan/rules.ts";
+import { buildPhrases } from "./phrases.ts";
 import type { VisualPlan } from "../schemas/visualPlan.ts";
 
 const EMPHASIS_SECONDS = 0.8;
+const PHRASE_MAX_WORDS = 6;
 
 export function buildRenderProps(opts: {
   plan: VisualPlan;
@@ -20,6 +22,7 @@ export function buildRenderProps(opts: {
   speakerCrop: Rect;
   style: Style;
   fonts: FontFile[];
+  face: boolean;
 }): RenderProps {
   const { plan, words, duration, fps, leadMs } = opts;
   const durationInFrames = Math.floor(duration * fps);
@@ -56,6 +59,11 @@ export function buildRenderProps(opts: {
     return { from, durationInFrames: Math.min(Math.round(EMPHASIS_SECONDS * fps), next - from), text: word.text };
   });
 
+  const accentWords = new Set(
+    plan.emphasis.flatMap((word) => Array.from({ length: word.text.trim().split(/\s+/).length }, (_, k) => word.atWord + k)),
+  );
+  const phrases = opts.face ? [] : buildPhrases({ words, accentWords, fps, durationInFrames, leadMs, maxWords: PHRASE_MAX_WORDS });
+
   return {
     video: opts.video,
     width: opts.width,
@@ -66,6 +74,8 @@ export function buildRenderProps(opts: {
     style: opts.style,
     fonts: opts.fonts,
     segments,
-    emphasis,
+    emphasis: opts.face ? emphasis : [],
+    face: opts.face,
+    phrases,
   };
 }

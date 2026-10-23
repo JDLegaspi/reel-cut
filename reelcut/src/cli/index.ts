@@ -58,12 +58,13 @@ program
   .option("--retake-word <word>", "word that abandons the previous attempt")
   .option("--aggressive", "also remove natural fillers inside good sentences")
   .option("--speaker-crop <crop>", 'part of the video that shows the speaker: "top-half", "bottom-half" or x,y,width,height')
+  .option("--no-face", "the input is a voiceover with no one on camera; shots without a visual show the spoken words")
   .option("--style <name>", 'style to draw the visuals in, made with "reelcut style create"; "default" for the built-in look')
   .option("--force", "rerun every stage")
   .action(
     async (
       input: string,
-      opts: { name?: string; retakeWord?: string; aggressive?: boolean; speakerCrop?: string; style?: string; force?: boolean },
+      opts: { name?: string; retakeWord?: string; aggressive?: boolean; face?: boolean; speakerCrop?: string; style?: string; force?: boolean },
     ) => {
     const source = sourceFor(input);
     const name = opts.name ?? defaultProjectName(source);
@@ -72,6 +73,7 @@ program
       source,
       retakeWord: opts.retakeWord ?? ctx.config.retakes.retakeWord,
       aggressive: opts.aggressive ?? ctx.config.retakes.aggressive,
+      face: opts.face,
       speakerCrop: opts.speakerCrop === undefined ? undefined : parseSpeakerCrop(opts.speakerCrop, ctx.config.video),
       style: opts.style === undefined ? undefined : opts.style === "default" ? null : opts.style,
     });

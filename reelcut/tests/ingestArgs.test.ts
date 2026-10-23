@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildNormalizeArgs, isTargetAspect, type VideoSettings } from "../src/media/ingestArgs.ts";
+import { buildNormalizeArgs, buildVoiceOnlyArgs, isTargetAspect, type VideoSettings } from "../src/media/ingestArgs.ts";
 
 const video: VideoSettings = { width: 1080, height: 1920, crf: 18, preset: "medium", audioBitrate: "192k", audioSampleRate: 48000 };
 
@@ -34,6 +34,20 @@ describe("buildNormalizeArgs", () => {
 
   test("maps the first video and audio streams and writes the output last", () => {
     expect(args).toEqual(expect.arrayContaining(["-map", "0:v:0", "-map", "0:a:0"]));
+    expect(args.at(-1)).toBe("out.mp4");
+  });
+});
+
+describe("buildVoiceOnlyArgs", () => {
+  const args = buildVoiceOnlyArgs({ input: "voice.mp3", output: "out.mp4", video });
+
+  test("draws a plain 1080x1920 30fps picture under the audio", () => {
+    expect(args).toEqual(expect.arrayContaining(["-f", "lavfi", "-i", "color=c=black:s=1080x1920:r=30"]));
+    expect(args).toEqual(expect.arrayContaining(["-map", "0:v:0", "-map", "1:a:0", "-shortest"]));
+  });
+
+  test("encodes H.264 yuv420p with AAC audio and writes the output last", () => {
+    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k"]));
     expect(args.at(-1)).toBe("out.mp4");
   });
 });

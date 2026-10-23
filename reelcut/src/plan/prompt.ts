@@ -9,7 +9,44 @@ import type { PlannerOutput } from "../schemas/visualPlan.ts";
 import type { VisualRules } from "./rules.ts";
 import { toClaudePlan } from "./schema.ts";
 
-export function planSystemPrompt(rules: VisualRules): string {
+const VOICE_ONLY_WORDING: [string, string][] = [
+  [
+    "You edit a vertical talking-head video (an Instagram Reel) into a fast, visual explainer. You plan where the edit cuts away from the speaker to animated visuals that illustrate what they are saying.",
+    "You edit a vertical voiceover video (an Instagram Reel) into a fast, visual explainer. There is no one on camera. You plan where the edit cuts away from the spoken words to animated visuals that illustrate what the voice is saying.",
+  ],
+  [
+    "- The speaker alone, full screen. This is any time not covered by a segment. Punch it up with emphasis: one to three of the speaker's own words shown huge on screen as they say them.",
+    "- The spoken words alone: the words being spoken, shown large on the backdrop, a phrase at a time. This is any time not covered by a segment. Use emphasis to pick the one to three words in a phrase that matter most; they are drawn in the accent colour.",
+  ],
+  ["while the speaker carries on in the bottom half", "while the spoken words carry on in the bottom half"],
+  ["while the speaker's voice carries on", "while the voice carries on"],
+  ["what the speaker is talking about", "what the voice is talking about"],
+  ["never the speaker's sentence", "never the spoken sentence"],
+  ["short stretches of the speaker", "short stretches of the spoken words"],
+  ["on the speaker, with emphasis", "on the spoken words, with emphasis"],
+  ["Show only what the speaker says.", "Show only what the voice says."],
+  ["if the speaker doesn't say it", "if the voice doesn't say it"],
+  [
+    "atWord must fall on a speaker shot, outside every segment. Pick stressed or important words, at most one per speaker stretch.",
+    "atWord must fall on the spoken words, outside every segment. Pick stressed or important words, at most one per stretch of spoken words.",
+  ],
+  ["keep the speaker on screen for at least", "leave the spoken words on screen for at least"],
+  ["A shorter glimpse of the speaker looks like a mistake.", "A shorter gap looks like a mistake."],
+];
+
+function voiceOnly(prompt: string): string {
+  return VOICE_ONLY_WORDING.reduce((text, [from, to]) => {
+    if (!text.includes(from)) throw new Error(`voice-only wording is out of date: "${from}" is not in the prompt`);
+    return text.replaceAll(from, to);
+  }, prompt);
+}
+
+export function planSystemPrompt(rules: VisualRules, face = true): string {
+  const prompt = talkingHeadPrompt(rules);
+  return face ? prompt : voiceOnly(prompt);
+}
+
+function talkingHeadPrompt(rules: VisualRules): string {
   const catalog = TEMPLATES.map((template) => {
     const { $schema: _, ...props } = z.toJSONSchema(template.schema);
     return `- ${template.name}: ${template.description}\n  props: ${JSON.stringify(props)}`;

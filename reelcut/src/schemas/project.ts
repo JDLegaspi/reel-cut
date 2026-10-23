@@ -13,6 +13,7 @@ export const ProjectSchema = z.object({
   source: ReelSourceSchema,
   retakeWord: z.string().min(1),
   aggressive: z.boolean(),
+  face: z.boolean().default(true),
 });
 
 export const SpeakerSchema = z.object({

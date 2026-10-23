@@ -64,6 +64,8 @@ describe.skipIf(!hasFfmpeg())("remotion renderer", () => {
       style: DEFAULT_STYLE,
       fonts: [],
       emphasis: [],
+      face: true,
+      phrases: [],
       segments: [
         { kind: "placeholder", id: "seg-01", from: 25, durationInFrames: 25, description: "Countdown card", spoken: "hello world" },
       ],
@@ -77,6 +79,36 @@ describe.skipIf(!hasFfmpeg())("remotion renderer", () => {
     expect(info.duration).toBeCloseTo(2, 1);
     expect(meanLuma(output, 0.5)).toBeGreaterThan(200);
     expect(meanLuma(output, 1.5)).toBeLessThan(60);
+  }, 300_000);
+
+  test("voice-only: draws the backdrop and the spoken phrase instead of the plain source picture", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "reelcut-voice-"));
+    execFileSync("ffmpeg", [
+      "-y", "-loglevel", "error",
+      "-f", "lavfi", "-i", "color=c=black:size=1080x1920:rate=25:duration=2",
+      "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(dir, "source.mp4"),
+    ]);
+    const props: RenderProps = {
+      video: "source.mp4",
+      width: 1080,
+      height: 1920,
+      fps: 25,
+      durationInFrames: 50,
+      speakerCrop: { x: 0, y: 0, width: 1080, height: 1920 },
+      style: LIGHT_STYLE,
+      fonts: await resolveFontFiles(LIGHT_STYLE),
+      emphasis: [],
+      face: false,
+      phrases: [{ from: 0, durationInFrames: 50, words: [{ text: "hello", from: 0, accent: false }, { text: "world", from: 10, accent: true }] }],
+      segments: [],
+    };
+    const output = join(dir, "out.mp4");
+
+    await createRemotionRenderer().render({ props, publicDir: dir, output, video: loadConfig().video, log: () => {} });
+
+    expect(meanLuma(output, 1.0)).toBeGreaterThan(150);
+    expect((await probe("ffprobe", output)).hasAudio).toBe(true);
   }, 300_000);
 
   test("renders every template's example in both layouts, in two different styles", async () => {

@@ -14,7 +14,7 @@ export function createClaudePlanner(model = claudeModel()): Planner {
         max_tokens: 16000,
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
-        system: planSystemPrompt(input.rules),
+        system: planSystemPrompt(input.rules, input.face),
         messages: buildPlanMessages(input),
         output_config: { format: betaZodOutputFormat(ClaudePlanSchema) },
       });

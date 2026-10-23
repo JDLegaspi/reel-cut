@@ -11,7 +11,7 @@ import { buildRenderProps } from "../../render/props.ts";
 import { VisualPlanSchema } from "../../schemas/visualPlan.ts";
 import { resolveFontFiles } from "../../style/fonts.ts";
 import type { ReelcutContext } from "../context.ts";
-import { readSpeaker } from "../project.ts";
+import { readProject, readSpeaker } from "../project.ts";
 import { resolveProjectStyle, styleInputs } from "../style.ts";
 
 export async function renderPropsFor(ctx: ReelcutContext): Promise<RenderProps> {
@@ -19,6 +19,7 @@ export async function renderPropsFor(ctx: ReelcutContext): Promise<RenderProps> 
   const plan = await readJson(ctx.paths.visualPlan, VisualPlanSchema);
   const info = await probe(ctx.config.paths.ffprobe, ctx.paths.source);
   const speakerCrop = (await readSpeaker(ctx))?.crop ?? null;
+  const { face } = await readProject(ctx);
   const { style, warnings } = await resolveProjectStyle(ctx);
   for (const warning of warnings) ctx.log(`warning: ${warning}`);
   const { video, visuals } = ctx.config;
@@ -45,12 +46,14 @@ export async function renderPropsFor(ctx: ReelcutContext): Promise<RenderProps> 
     speakerCrop: speakerCrop ?? { x: 0, y: 0, width: info.width, height: info.height },
     style,
     fonts: await resolveFontFiles(style),
+    face,
   });
 }
 
 export const render: Stage<ReelcutContext> = {
   name: "render",
   inputs: async (ctx) => [
+    ctx.paths.project,
     ctx.paths.source,
     ctx.paths.transcript,
     ctx.paths.visualPlan,

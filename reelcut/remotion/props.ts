@@ -40,6 +40,18 @@ export type EmphasisWord = {
   text: string;
 };
 
+export type PhraseWord = {
+  text: string;
+  from: number;
+  accent: boolean;
+};
+
+export type Phrase = {
+  from: number;
+  durationInFrames: number;
+  words: PhraseWord[];
+};
+
 export type RenderProps = {
   video: string;
   width: number;
@@ -51,6 +63,8 @@ export type RenderProps = {
   fonts: FontFile[];
   segments: RenderSegment[];
   emphasis: EmphasisWord[];
+  face: boolean;
+  phrases: Phrase[];
 };
 
 export type PreviewProps = {

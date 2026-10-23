@@ -8,6 +8,7 @@ import { emphasisProblems } from "../../plan/emphasis.ts";
 import { bulleted, segmentWindow, validatePlan, type VisualRules } from "../../plan/rules.ts";
 import type { Downgraded, Emphasis, PlannedVisual, PlannerOutput, VisualPlan } from "../../schemas/visualPlan.ts";
 import type { ReelcutContext } from "../context.ts";
+import { readProject } from "../project.ts";
 
 function emphasisCheck(transcript: Transcript, rules: VisualRules, segments: PlannedVisual[]) {
   return (word: Emphasis) =>
@@ -23,21 +24,22 @@ function review(output: PlannerOutput, transcript: Transcript, rules: VisualRule
 
 export const plan: Stage<ReelcutContext> = {
   name: "plan",
-  inputs: async (ctx) => [ctx.paths.transcript, ctx.paths.frames],
+  inputs: async (ctx) => [ctx.paths.project, ctx.paths.transcript, ctx.paths.frames],
   outputs: async (ctx) => [ctx.paths.visualPlanRaw, ctx.paths.visualPlan],
   async run(ctx) {
     const transcript = await readJson(ctx.paths.transcript, TranscriptSchema);
     const frames = await loadFrameImages(ctx.paths.frames);
     const rules = ctx.config.visuals;
     const planner = ctx.planner();
+    const { face } = await readProject(ctx);
 
-    const first = await planner.plan({ transcript, frames, rules });
+    const first = await planner.plan({ transcript, frames, rules, face });
     const attempts = [first.raw];
     let output = first.output;
     let problems = review(output, transcript, rules);
     if (problems.all.length > 0) {
       ctx.log(`plan has ${problems.all.length} problem(s); asking for a corrected plan`);
-      const second = await planner.plan({ transcript, frames, rules, retry: { previous: output, errors: problems.all } });
+      const second = await planner.plan({ transcript, frames, rules, face, retry: { previous: output, errors: problems.all } });
       attempts.push(second.raw);
       output = second.output;
       problems = review(output, transcript, rules);

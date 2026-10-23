@@ -6,12 +6,12 @@ import { StyleProvider } from "./style/StyleContext.tsx";
 import { StyleFonts } from "./style/StyleFonts.tsx";
 import { TemplateView } from "./TemplateView.tsx";
 
-export function Reel({ video, speakerCrop, segments, emphasis, style, fonts }: RenderProps) {
+export function Reel({ video, speakerCrop, segments, emphasis, style, fonts, face, phrases }: RenderProps) {
   return (
     <StyleProvider style={style}>
       <StyleFonts fonts={fonts} />
       <AbsoluteFill style={{ backgroundColor: style.palette.backdrop[1] }}>
-        <Speaker video={video} crop={speakerCrop} segments={segments} />
+        <Speaker video={video} crop={speakerCrop} segments={segments} face={face} phrases={phrases} />
         {emphasis.map((word, k) => (
           <Sequence key={`emphasis-${k}`} name={`emphasis ${word.text}`} from={word.from} durationInFrames={word.durationInFrames}>
             <Emphasis word={word} index={k} top={emphasisTop(speakerCrop)} />

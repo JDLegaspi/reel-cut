@@ -7,6 +7,7 @@ export interface PlanInput {
   transcript: Transcript;
   frames: FrameImage[];
   rules: VisualRules;
+  face: boolean;
   retry?: { previous: PlannerOutput; errors: string[] };
 }
 

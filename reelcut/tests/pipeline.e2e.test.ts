@@ -225,6 +225,23 @@ describe.skipIf(!hasFfmpeg())("pipeline", () => {
     expect((await runPipeline(ctx, { force: false })).map((r) => r.ran)).toEqual([false, false, false, false, false, false]);
   });
 
+  test("runs a voice-only project from an mp3", async () => {
+    const mp3 = join(root, "voice.mp3");
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", mp3]);
+    const ctx = context("voice");
+    await initProject(ctx, { source: fileSource(mp3), ...options, face: false });
+    for (const stage of ["ingest", "transcribe", "frames"]) await runStage(ctx, findStage(stage), { force: false });
+
+    expect(await probe("ffprobe", ctx.paths.source)).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
+    expect(JSON.parse(await readFile(ctx.paths.frames, "utf8"))).toEqual({ version: 1, frames: [] });
+  });
+
+  test("tells the planner a voice-only project has no face", async () => {
+    const planCalls: PlanInput[] = [];
+    await runStage(context("voice", { planCalls }), findStage("plan"), { force: false });
+    expect(planCalls[0]?.face).toBe(false);
+  });
+
   test("rejects inputs without audio", async () => {
     const ctx = context("silent");
     await initProject(ctx, { source: fileSource(silent), ...options });

@@ -60,6 +60,20 @@ describe("planSystemPrompt", () => {
   });
 });
 
+describe("planSystemPrompt for a voice-only video", () => {
+  test("describes the gaps as the spoken words on the backdrop, not the speaker", () => {
+    const prompt = planSystemPrompt(rules, false);
+    expect(prompt).toContain("There is no one on camera");
+    expect(prompt).toContain("the words being spoken, shown large on the backdrop");
+    expect(prompt).not.toContain("The speaker alone, full screen");
+  });
+
+  test("leaves the talking-head prompt unchanged by default", () => {
+    expect(planSystemPrompt(rules)).toBe(planSystemPrompt(rules, true));
+    expect(planSystemPrompt(rules)).toContain("The speaker alone, full screen");
+  });
+});
+
 describe("Claude's plan format", () => {
   const segment = { layout: "split" as const, template: "Checklist", startWord: 0, endWord: 3, reveals: [], rationale: "list" };
 

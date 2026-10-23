@@ -16,6 +16,8 @@ const defaultProps: RenderProps = {
   fonts: [],
   segments: [],
   emphasis: [],
+  face: true,
+  phrases: [],
 };
 
 const firstTemplate = TEMPLATES[0]!;

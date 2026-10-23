@@ -1,8 +1,8 @@
-import { Video } from "@remotion/media";
+import { Audio, Video } from "@remotion/media";
 import type { ReactNode } from "react";
-import { AbsoluteFill, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { speakerFrame, speakerPanel, type Rect, type Size } from "./framing.ts";
-import type { EmphasisWord, RenderSegment } from "./props.ts";
+import type { EmphasisWord, Phrase, RenderSegment } from "./props.ts";
 import { useStyle } from "./style/StyleContext.tsx";
 import { alpha, fontStack, headline, shadowFor, tracking } from "./style/tokens.ts";
 import { Backdrop, Camera, clamp01, fitSize, Marker, useProgress, useReveal } from "./templates/parts.tsx";
@@ -12,11 +12,94 @@ const FRAME: Size = { width: 1080, height: 1920 };
 const HALF = FRAME.height / 2;
 const PUNCH_ZOOM = 1.1;
 
-export function Speaker({ video, crop, segments }: { video: string; crop: Rect; segments: RenderSegment[] }) {
+const WORD_RISE_FRAMES = 6;
+const UNSPOKEN_OPACITY = 0.25;
+
+function Spoken({ phrase, frame, panel }: { phrase: Phrase; frame: number; panel: { top: number; height: number } }) {
+  const style = useStyle();
+  const { palette } = style;
+  const text = phrase.words.map((word) => word.text).join(" ");
+  const size = fitSize(text, { max: 96, min: 64, fits: 18 });
+  const local = frame - phrase.from;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 80,
+        right: 80,
+        top: panel.top,
+        height: panel.height,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: fontStack(style.type.display),
+          fontSize: size,
+          fontWeight: style.type.displayWeight,
+          letterSpacing: tracking(style, size),
+          lineHeight: 1.15,
+        }}
+      >
+        {phrase.words.map((word, k) => {
+          const shown = interpolate(local - word.from, [0, WORD_RISE_FRAMES], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          return (
+            <span
+              key={k}
+              style={{
+                display: "inline-block",
+                marginRight: "0.25em",
+                color: word.accent ? palette.accent : palette.onBackdrop,
+                opacity: UNSPOKEN_OPACITY + (1 - UNSPOKEN_OPACITY) * shown,
+                transform: `translateY(${(1 - shown) * 20}px)`,
+              }}
+            >
+              {headline(style, word.text)}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Voice({ video, phrases, split }: { video: string; phrases: Phrase[]; split: boolean }) {
+  const frame = useCurrentFrame();
+  const phrase = phrases.find((candidate) => frame >= candidate.from && frame < candidate.from + candidate.durationInFrames);
+  const panel = split ? { top: HALF, height: HALF } : { top: 0, height: FRAME.height };
+  return (
+    <AbsoluteFill>
+      <Audio src={staticFile(video)} />
+      <Backdrop />
+      {phrase && <Spoken phrase={phrase} frame={frame} panel={panel} />}
+    </AbsoluteFill>
+  );
+}
+
+export function Speaker({
+  video,
+  crop,
+  segments,
+  face,
+  phrases,
+}: {
+  video: string;
+  crop: Rect;
+  segments: RenderSegment[];
+  face: boolean;
+  phrases: Phrase[];
+}) {
   const frame = useCurrentFrame();
   const style = useStyle();
   const active = segments.find((segment) => frame >= segment.from && frame < segment.from + segment.durationInFrames);
   const split = active?.kind === "visual" && active.layout === "split";
+  if (!face) return <Voice video={video} phrases={phrases} split={split} />;
   const shotsSoFar = segments.filter((segment) => segment.from <= frame).length;
   const zoom = !active && shotsSoFar % 2 === 1 ? PUNCH_ZOOM : 1;
   const alone = speakerPanel(crop, FRAME);
