@@ -2,8 +2,8 @@ import type { ReelcutConfig } from "./src/config/schema.ts";
 
 const config: ReelcutConfig = {
   paths: {
-    projectsDir: "projects",
-    stylesDir: "styles",
+    projectsDir: "reel-cut/projects",
+    stylesDir: "reel-cut/styles",
     ffmpeg: "ffmpeg",
     ffprobe: "ffprobe",
     ytDlp: "yt-dlp",

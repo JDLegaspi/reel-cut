@@ -1,11 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
 import { frameBlocks } from "@reel/shared/claude.ts";
 import type { FrameImage } from "@reel/shared/frames/frames.ts";
 import type { Transcript, Word } from "@reel/shared/schemas/transcript.ts";
 import { splitIntoLines } from "@reel/shared/transcribe/lines.ts";
-import { TEMPLATES } from "../../remotion/templates/registry.ts";
 import type { PlannerOutput } from "../schemas/visualPlan.ts";
+import { templateCatalog } from "./catalog.ts";
 import type { VisualRules } from "./rules.ts";
 import { toClaudePlan } from "./schema.ts";
 
@@ -47,10 +46,7 @@ export function planSystemPrompt(rules: VisualRules, face = true): string {
 }
 
 function talkingHeadPrompt(rules: VisualRules): string {
-  const catalog = TEMPLATES.map((template) => {
-    const { $schema: _, ...props } = z.toJSONSchema(template.schema);
-    return `- ${template.name}: ${template.description}\n  props: ${JSON.stringify(props)}`;
-  }).join("\n");
+  const catalog = templateCatalog();
   return `You edit a vertical talking-head video (an Instagram Reel) into a fast, visual explainer. You plan where the edit cuts away from the speaker to animated visuals that illustrate what they are saying.
 
 You get the video's duration, a transcript in which every word is numbered, and frames sampled from the video with their times.

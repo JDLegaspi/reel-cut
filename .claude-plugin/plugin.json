@@ -1,0 +1,10 @@
+{
+  "name": "reel-cut",
+  "description": "Edit vertical talking-head videos into reels with animated visuals, planned by Claude and rendered with Remotion",
+  "version": "0.1.0",
+  "author": { "name": "Jose Legaspi" },
+  "homepage": "https://github.com/JDLegaspi/reel-cut",
+  "repository": "https://github.com/JDLegaspi/reel-cut",
+  "license": "MIT",
+  "keywords": ["video", "reels", "remotion", "editing"]
+}

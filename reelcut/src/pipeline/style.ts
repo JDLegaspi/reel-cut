@@ -48,7 +48,7 @@ export async function resolveProjectStyle(ctx: ReelcutContext): Promise<{ style:
   let base = DEFAULT_STYLE;
   if (project.base) {
     const raw = await readJsonOrNull(stylePaths(ctx.stylesRoot, project.base).style);
-    if (raw === null) throw new Error(`Style "${project.base}" does not exist. Make it with: reelcut style create ${project.base} --from <reference>`);
+    if (raw === null) throw new Error(`Style "${project.base}" does not exist. Make it with: reel-cut style create ${project.base} --from <reference>`);
     base = raw as Style;
   }
   const { errors, contrast, style } = styleProblems(mergeStyle(base, project.overrides));

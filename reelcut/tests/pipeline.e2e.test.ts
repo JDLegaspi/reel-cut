@@ -191,7 +191,7 @@ describe.skipIf(!hasFfmpeg())("pipeline", () => {
     const fresh = context("fresh");
     await initProject(fresh, { source: fileSource(input), ...options });
     await expect(runStage(fresh, findStage("transcribe"), { force: false })).rejects.toThrow(
-      'Run "reelcut stage ingest fresh" first',
+      'Run "reel-cut stage ingest fresh" first',
     );
   });
 
@@ -476,7 +476,7 @@ describe.skipIf(!hasFfmpeg())("pipeline", () => {
     await initProject(ctx, { source: fileSource(input), ...options, style: "missing" });
     await editProjectStyle(ctx.paths.style, (style) => style, 60);
     await expect(runStage(ctx, findStage("render"), { force: false })).rejects.toThrow(
-      'Style "missing" does not exist. Make it with: reelcut style create missing --from <reference>',
+      'Style "missing" does not exist. Make it with: reel-cut style create missing --from <reference>',
     );
   });
 });

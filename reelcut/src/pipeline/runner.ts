@@ -17,7 +17,7 @@ import { render } from "./stages/render.ts";
 import { transcribe } from "./stages/transcribe.ts";
 
 export const { stages: STAGES, findStage, runStage, runPipeline } = createPipeline<ReelcutContext>({
-  command: "reelcut",
+  command: "reel-cut",
   stages: [download, ingest, transcribe, frames, plan, render],
 });
 

@@ -1,5 +1,8 @@
 node_modules/
-reelcut/projects/
 .env
 *.log
-reelcut/styles/
+reel-cut/
+reelcut/dist/
+reelcut/README.md
+reelcut/LICENSE
+.DS_Store

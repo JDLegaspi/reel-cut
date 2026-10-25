@@ -2,14 +2,14 @@ import { spawn } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { COMPOSITION_ID, SHEET_ID, type RenderProps, type SheetProps } from "../../remotion/props.ts";
+import { packageRoot } from "../packageRoot.ts";
 import { resolveFontFiles } from "../style/fonts.ts";
 import type { Renderer, SheetRenderer } from "./Renderer.ts";
 
-export const REMOTION_ENTRY = fileURLToPath(new URL("../../remotion/index.ts", import.meta.url));
+export const REMOTION_ENTRY = join(packageRoot(import.meta.url), "remotion", "index.ts");
 
 export function createRemotionRenderer(): Renderer {
   return {

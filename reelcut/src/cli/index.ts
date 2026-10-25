@@ -1,31 +1,30 @@
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { sourceFor } from "@reel/shared/download/ytdlp.ts";
 import { createElevenLabsTranscriber } from "@reel/shared/transcribe/elevenlabs.ts";
 import { Command } from "commander";
 import { config as loadEnv } from "dotenv";
 import { loadConfig } from "../config/load.ts";
+import { canRun, checkSetup } from "../doctor.ts";
 import { parseSpeakerCrop } from "../media/speakerCrop.ts";
 import { createContext, type ReelcutContext } from "../pipeline/context.ts";
 import { defaultProjectName } from "../pipeline/project.ts";
 import { findStage, initProject, runPipeline, runStage, STAGES } from "../pipeline/runner.ts";
 import { renderPropsFor } from "../pipeline/stages/render.ts";
+import { templateCatalog } from "../plan/catalog.ts";
 import { createClaudePlanner } from "../plan/claude.ts";
 import { createRemotionRenderer, createRemotionSheetRenderer, openStudio } from "../render/remotion.ts";
 import { createClaudeStyler } from "../style/claude.ts";
 import { createStyleContext, type StyleContext } from "../style/pipeline/context.ts";
 import { findStyleStage, initStyle, runStyleStage, runStylePipeline, STYLE_STAGES } from "../style/pipeline/runner.ts";
 
-const PACKAGE_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
-
-loadEnv({ path: resolve(PACKAGE_ROOT, "../.env"), quiet: true });
+loadEnv({ quiet: true });
 
 function contextFor(name: string): ReelcutContext {
   const config = loadConfig();
   return createContext({
     name,
-    projectsRoot: resolve(PACKAGE_ROOT, config.paths.projectsDir),
-    stylesRoot: resolve(PACKAGE_ROOT, config.paths.stylesDir),
+    projectsRoot: resolve(config.paths.projectsDir),
+    stylesRoot: resolve(config.paths.stylesDir),
     config,
     transcriber: () => createElevenLabsTranscriber(config.transcription),
     planner: () => createClaudePlanner(),
@@ -38,7 +37,7 @@ function styleContextFor(name: string): StyleContext {
   const config = loadConfig();
   return createStyleContext({
     name,
-    stylesRoot: resolve(PACKAGE_ROOT, config.paths.stylesDir),
+    stylesRoot: resolve(config.paths.stylesDir),
     config,
     styler: () => createClaudeStyler(),
     sheet: () => createRemotionSheetRenderer(),
@@ -47,8 +46,20 @@ function styleContextFor(name: string): StyleContext {
 }
 
 const program = new Command()
-  .name("reelcut")
+  .name("reel-cut")
   .description("Turn a vertical talking-head video into an Instagram-ready Reel");
+
+program
+  .command("doctor")
+  .description("Check that ffmpeg, yt-dlp and the API keys are set up")
+  .action(async () => {
+    const checks = await checkSetup({ config: loadConfig(), env: process.env, canRun });
+    for (const check of checks) {
+      const mark = check.ok ? "ok" : check.required ? "missing" : "optional, missing";
+      console.log(`${check.name}: ${mark}${check.ok ? "" : ` (${check.hint})`}`);
+    }
+    if (checks.some((check) => check.required && !check.ok)) process.exitCode = 1;
+  });
 
 program
   .command("run")
@@ -59,7 +70,7 @@ program
   .option("--aggressive", "also remove natural fillers inside good sentences")
   .option("--speaker-crop <crop>", 'part of the video that shows the speaker: "top-half", "bottom-half" or x,y,width,height')
   .option("--no-face", "the input is a voiceover with no one on camera; shots without a visual show the spoken words")
-  .option("--style <name>", 'style to draw the visuals in, made with "reelcut style create"; "default" for the built-in look')
+  .option("--style <name>", 'style to draw the visuals in, made with "reel-cut style create"; "default" for the built-in look')
   .option("--force", "rerun every stage")
   .action(
     async (
@@ -90,6 +101,13 @@ program
   .option("--force", "rerun even if up to date")
   .action(async (stageName: string, name: string, opts: { force?: boolean }) => {
     await runStage(contextFor(name), findStage(stageName), { force: opts.force ?? false });
+  });
+
+program
+  .command("templates")
+  .description("List the visual templates and the props each one takes, for editing visual_plan.json")
+  .action(() => {
+    console.log(templateCatalog());
   });
 
 program

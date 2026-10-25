@@ -1,14 +1,43 @@
 {
-  "name": "reelcut",
+  "name": "reel-cut",
   "version": "0.1.0",
-  "private": true,
+  "description": "Turn a vertical talking-head video into an edited, Instagram-ready Reel with Claude and Remotion",
+  "license": "MIT",
+  "author": "Jose Legaspi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JDLegaspi/reel-cut.git",
+    "directory": "reelcut"
+  },
+  "homepage": "https://github.com/JDLegaspi/reel-cut#readme",
+  "keywords": [
+    "reels",
+    "video",
+    "remotion",
+    "claude",
+    "claude-code",
+    "elevenlabs",
+    "captions"
+  ],
   "type": "module",
   "bin": {
-    "reelcut": "./bin/reelcut.mjs"
+    "reel-cut": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "remotion",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "npm run build && cp ../README.md ../LICENSE ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
-    "@reel/shared": "*",
+    "@elevenlabs/elevenlabs-js": "^2.71.0",
     "@remotion/bundler": "4.0.533",
     "@remotion/cli": "4.0.533",
     "@remotion/google-fonts": "4.0.533",
@@ -25,6 +54,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/react": "19.3.0"
+    "@reel/shared": "*",
+    "@types/react": "19.3.0",
+    "esbuild": "^0.28.1"
   }
 }

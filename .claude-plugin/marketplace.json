@@ -1,0 +1,11 @@
+{
+  "name": "reel-cut",
+  "owner": { "name": "Jose Legaspi" },
+  "plugins": [
+    {
+      "name": "reel-cut",
+      "source": "./",
+      "description": "Edit vertical talking-head videos into reels with animated visuals, planned by Claude and rendered with Remotion"
+    }
+  ]
+}

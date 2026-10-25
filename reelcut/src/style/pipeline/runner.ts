@@ -9,7 +9,7 @@ export const {
   findStage: findStyleStage,
   runStage: runStyleStage,
   runPipeline: runStylePipeline,
-} = createPipeline<StyleContext>({ command: "reelcut style", stages: [gather, derive, sheet] });
+} = createPipeline<StyleContext>({ command: "reel-cut style", stages: [gather, derive, sheet] });
 
 export async function initStyle(ctx: StyleContext, sources: string[]): Promise<void> {
   if (sources.length === 0) throw new Error("A style needs at least one reference: --from <url or file>");

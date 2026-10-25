@@ -16,7 +16,7 @@ reelcut turns a vertical talking-head video into an Instagram-ready Reel. Its in
 ## Pipeline semantics
 
 - `reelcut run <url or file> [--name <project>] [--retake-word <word>] [--aggressive] [--speaker-crop <crop>] [--force]`. The project name defaults to `ig-<shortcode>` for Instagram URLs and a slug of the file name for local files.
-- Projects live in `reelcut/projects/<name>/`. `project.json` records the source (`{ "kind": "url", "url": … }` or `{ "kind": "file", "path": … }`), `retakeWord` and `aggressive`. `speaker.json` records the speaker crop (`top-half`, `bottom-half` or `x,y,width,height` in the 1080×1920 source): the part of the video that shows the speaker cleanly, without the original creator's overlays. It is a separate file so changing it only re-renders; a run without `--speaker-crop` keeps the current crop.
+- Projects live in `reel-cut/projects/<name>/` under the current folder. `project.json` records the source (`{ "kind": "url", "url": … }` or `{ "kind": "file", "path": … }`), `retakeWord` and `aggressive`. `speaker.json` records the speaker crop (`top-half`, `bottom-half` or `x,y,width,height` in the 1080×1920 source): the part of the video that shows the speaker cleanly, without the original creator's overlays. It is a separate file so changing it only re-renders; a run without `--speaker-crop` keeps the current crop.
 - Stages: download, ingest, transcribe, frames, retakes, cut, plan, render, report.
   - **download**: URL sources only; writes `original.mp4` and `info.raw.json`. For file sources it has no outputs and does nothing.
   - **ingest**: `project.json` plus `original.mp4` or the local file → `source.mp4` (1080×1920, constant frame rate, H.264) and `audio.wav`. Inputs without audio are rejected.
@@ -26,7 +26,7 @@ reelcut turns a vertical talking-head video into an Instagram-ready Reel. Its in
   - **render**: `source.mp4`, `transcript.json`, `visual_plan.json` and `speaker.json` → `final.mp4` through Remotion (`reelcut/remotion/`). The plan is checked again first, so a hand edit that breaks a rule fails with the problem instead of rendering. `reelcut studio <project>` opens the same composition in Remotion Studio.
   - Until retakes and cut exist (milestone 2), plan and render work on the uncut `transcript.json` and `source.mp4`.
 - Make-style staleness: a stage runs when any output is missing or older than any input. `--force` always reruns. `reelcut stage <name> <project>` runs one stage.
-- All tunables in `reelcut/reelcut.config.ts`.
+- All tunables in `reelcut/reelcut.config.ts`; a `reel-cut.config.json` in the current folder overrides any of them (objects merge, arrays replace).
 
 ## Artifacts
 
@@ -133,7 +133,7 @@ Every visual's look comes from a style: data with a closed schema instead of cod
 
 ### Making a style
 
-`reelcut style create <name> --from <reference> [--from <reference> …]` writes `reelcut/styles/<name>/` (gitignored, like projects):
+`reelcut style create <name> --from <reference> [--from <reference> …]` writes `reel-cut/styles/<name>/` under the current folder:
 
 | File | Contents |
 | --- | --- |
@@ -174,7 +174,7 @@ Two or three styles made from real references of different kinds, each shown as 
 ### Settled while building
 
 - Fonts are resolved in Node (`resolveFontFiles`: each family's nearest available weights, latin and latin-ext files) and passed in the render props as `fonts`, which the composition loads with `FontFace`. Loading them by name inside the bundle would make webpack bundle all 1,838 font modules on every render.
-- Style names are lowercase letters, digits and dashes, so a name can never point outside `reelcut/styles/`.
+- Style names are lowercase letters, digits and dashes, so a name can never point outside `reel-cut/styles/`.
 - `style.json` rejects unknown keys, so a misspelt setting is an error rather than silently ignored.
 - Website colours come from a grid of points on the first two screens (the colour actually painted at each point) and every colour is normalised through a canvas, so `oklch()` and `hsl()` values come out as hex.
 - Images keep PNG only when they have transparency; photos and screenshots are JPEG, which keeps them under the API's per-image limit.
