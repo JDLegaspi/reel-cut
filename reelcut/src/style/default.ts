@@ -22,5 +22,6 @@ export const DEFAULT_STYLE: Style = {
   flourishes: { bursts: true, coins: true, glow: true, shake: false },
   icons: { stroke: 2.2, tiles: "filled" },
   emphasis: "solid",
+  layout: { speaker: "full", captions: "none" },
   notes: "The built-in reelcut look: a vivid blue backdrop with drifting light, white cards with deep shadows, yellow, green and red accents, set in Inter.",
 };

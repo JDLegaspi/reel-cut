@@ -54,7 +54,7 @@ describe("contentProblems", () => {
 
   test("rejects an unknown template", () => {
     expect(contentProblems(listItem({ template: "Carousel" }), words, 1)).toEqual([
-      'segment 1: unknown template "Carousel"; use one of Stat, Growth, Versus, Concept, Flow, Phone, Logos, Kinetic, Countdown, Checklist',
+      'segment 1: unknown template "Carousel"; use one of Stat, Growth, Versus, Concept, Flow, Phone, Logos, Website, Groups, Kinetic, Countdown, Checklist',
     ]);
   });
 

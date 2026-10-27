@@ -32,9 +32,19 @@ export const ConfigSchema = z.object({
   download: DownloadSchema,
   transcription: TranscriptionSchema,
   frames: FrameSettingsSchema,
+  audio: z.object({
+    isolateVoice: z.boolean(),
+    loudness: z.number().max(0),
+  }),
   retakes: z.object({
     retakeWord: z.string().min(1),
     aggressive: z.boolean(),
+  }),
+  cut: z.object({
+    padBefore: z.number().nonnegative(),
+    padAfter: z.number().nonnegative(),
+    maxGap: z.number().positive(),
+    fadeMs: z.number().nonnegative(),
   }),
   visuals: z.object({
     leadMs: z.number().nonnegative(),

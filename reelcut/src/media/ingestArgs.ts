@@ -11,26 +11,16 @@ export function isTargetAspect(size: { width: number; height: number }, target: 
 
 export const VOICE_ONLY_FPS: Rational = { num: 30, den: 1 };
 
-function encodeArgs(video: VideoSettings, output: string): string[] {
-  return [
-    "-c:v",
-    "libx264",
-    "-preset",
-    video.preset,
-    "-crf",
-    String(video.crf),
-    "-c:a",
-    "aac",
-    "-b:a",
-    video.audioBitrate,
-    "-ar",
-    String(video.audioSampleRate),
-    "-ac",
-    "2",
-    "-movflags",
-    "+faststart",
-    output,
-  ];
+export function videoEncodeArgs(video: VideoSettings): string[] {
+  return ["-c:v", "libx264", "-preset", video.preset, "-crf", String(video.crf)];
+}
+
+export function audioEncodeArgs(video: VideoSettings): string[] {
+  return ["-c:a", "aac", "-b:a", video.audioBitrate, "-ar", String(video.audioSampleRate), "-ac", "2"];
+}
+
+function partEncodeArgs(video: VideoSettings, output: string): string[] {
+  return [...videoEncodeArgs(video), "-c:a", "pcm_s16le", "-ar", String(video.audioSampleRate), "-ac", "2", output];
 }
 
 export function buildVoiceOnlyArgs(opts: { input: string; output: string; video: VideoSettings }): string[] {
@@ -56,7 +46,7 @@ export function buildVoiceOnlyArgs(opts: { input: string; output: string; video:
     "-shortest",
     "-pix_fmt",
     "yuv420p",
-    ...encodeArgs(video, output),
+    ...partEncodeArgs(video, output),
   ];
 }
 
@@ -87,6 +77,6 @@ export function buildNormalizeArgs(opts: { input: string; output: string; fps: R
     filter,
     "-af",
     "aresample=async=1:first_pts=0",
-    ...encodeArgs(video, output),
+    ...partEncodeArgs(video, output),
   ];
 }

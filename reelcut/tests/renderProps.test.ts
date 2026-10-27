@@ -72,6 +72,8 @@ test("converts segments, reveals and emphasis words into frames on the video's t
     emphasis: [{ from: 89, durationInFrames: 15, text: "W6" }],
     face: true,
     phrases: [],
+    captions: [],
+    brands: [],
   });
 });
 
@@ -92,4 +94,26 @@ test("passes props through the template's schema, so colour names from older pla
   };
   const props = buildRenderProps({ plan: older, words, duration: 5.2, fps: 30, width: 1080, height: 1920, leadMs: 40, video: "source.mp4", speakerCrop, style: DEFAULT_STYLE, fonts, face: true });
   expect(props.segments[0]).toMatchObject({ kind: "visual", props: { ...concept, color: "tint2" } });
+});
+
+test("shows one-word captions instead of separate emphasis words when the style asks for them", () => {
+  const style = { ...DEFAULT_STYLE, layout: { speaker: "card" as const, captions: "word" as const } };
+  const props = buildRenderProps({
+    plan,
+    words,
+    duration: 5.2,
+    fps: 30,
+    width: 1080,
+    height: 1920,
+    leadMs: 40,
+    video: "source.mp4",
+    speakerCrop,
+    style,
+    fonts,
+    face: true,
+  });
+  expect(props.emphasis).toEqual([]);
+  expect(props.captions).toHaveLength(words.length);
+  expect(props.captions[6]).toMatchObject({ text: "w6", accent: true });
+  expect(props.captions[5]).toMatchObject({ text: "w5", accent: false });
 });

@@ -17,4 +17,9 @@ describe("ProjectSchema", () => {
     const old = { version: 1, source: { kind: "file", path: "/x/a.mov" }, retakeWord: "again", aggressive: false };
     expect(ProjectSchema.parse(old).face).toBe(true);
   });
+
+  test("reads a project's single source as its only take", () => {
+    const old = { version: 1, source: { kind: "file", path: "/x/a.mov" }, retakeWord: "again", aggressive: false };
+    expect(ProjectSchema.parse(old).sources).toEqual([{ kind: "file", path: "/x/a.mov" }]);
+  });
 });

@@ -23,6 +23,7 @@ export const LIGHT_STYLE: Style = {
   flourishes: { bursts: false, coins: false, glow: false, shake: false },
   icons: { stroke: 1.5, tiles: "outline" },
   emphasis: "highlight",
+  layout: { speaker: "full", captions: "none" },
   notes: "A flat, editorial test style that differs from the default in every setting.",
 };
 

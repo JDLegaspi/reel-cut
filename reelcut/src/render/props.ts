@@ -2,13 +2,16 @@ import type { Word } from "@reel/shared/schemas/transcript.ts";
 import type { Rect } from "../../remotion/framing.ts";
 import type { FontFile, RenderProps, RenderSegment } from "../../remotion/props.ts";
 import { findTemplate } from "../../remotion/templates/registry.ts";
+import type { Brand } from "../schemas/brands.ts";
 import type { Style } from "../schemas/style.ts";
 import { segmentWindow } from "../plan/rules.ts";
+import { buildCaptions } from "./captions.ts";
 import { buildPhrases } from "./phrases.ts";
 import type { VisualPlan } from "../schemas/visualPlan.ts";
 
 const EMPHASIS_SECONDS = 0.8;
 const PHRASE_MAX_WORDS = 6;
+const CAPTION_HOLD_SECONDS = 0.4;
 
 export function buildRenderProps(opts: {
   plan: VisualPlan;
@@ -23,6 +26,7 @@ export function buildRenderProps(opts: {
   style: Style;
   fonts: FontFile[];
   face: boolean;
+  brands?: Brand[];
 }): RenderProps {
   const { plan, words, duration, fps, leadMs } = opts;
   const durationInFrames = Math.floor(duration * fps);
@@ -63,6 +67,10 @@ export function buildRenderProps(opts: {
     plan.emphasis.flatMap((word) => Array.from({ length: word.text.trim().split(/\s+/).length }, (_, k) => word.atWord + k)),
   );
   const phrases = opts.face ? [] : buildPhrases({ words, accentWords, fps, durationInFrames, leadMs, maxWords: PHRASE_MAX_WORDS });
+  const captioned = opts.face && opts.style.layout.captions === "word";
+  const captions = captioned
+    ? buildCaptions({ words, accentWords, fps, durationInFrames, leadMs, holdSeconds: CAPTION_HOLD_SECONDS })
+    : [];
 
   return {
     video: opts.video,
@@ -74,8 +82,10 @@ export function buildRenderProps(opts: {
     style: opts.style,
     fonts: opts.fonts,
     segments,
-    emphasis: opts.face ? emphasis : [],
+    emphasis: opts.face && !captioned ? emphasis : [],
     face: opts.face,
     phrases,
+    captions,
+    brands: opts.brands ?? [],
   };
 }

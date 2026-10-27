@@ -27,6 +27,10 @@ npx -y reel-cut run <video> --style <name>
 
 For an existing project, repeat the project's original input and flags, adding `--style <name>`. Only the render reruns. Use `--style default` to go back to the built-in look.
 
+## Layout
+
+A style's `layout` sets how the speaker sits under split visuals (`speaker`: `full` edge to edge, or `card`, a rounded inset card) and whether captions show (`captions`: `none`, or `word`, the word being said, one at a time, with emphasis words in the accent).
+
 ## Tweak it
 
 - **A style everywhere:** edit `reel-cut/styles/<name>/style.json`, then run `npx -y reel-cut style sheet <name>` and look at the new sheet. The schema is closed, so the sheet command names any value it rejects.

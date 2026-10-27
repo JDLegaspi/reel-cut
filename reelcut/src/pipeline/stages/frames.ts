@@ -8,7 +8,7 @@ import { readProject } from "../project.ts";
 
 export const frames: Stage<ReelcutContext> = {
   name: "frames",
-  inputs: async (ctx) => [ctx.paths.project, ctx.paths.source, ctx.paths.transcript],
+  inputs: async (ctx) => [ctx.paths.project, ctx.paths.cut, ctx.paths.cutTranscript],
   outputs: async (ctx) => [ctx.paths.frames],
   async run(ctx) {
     if (!(await readProject(ctx)).face) {
@@ -16,12 +16,12 @@ export const frames: Stage<ReelcutContext> = {
       ctx.log("voice only; no frames");
       return;
     }
-    const transcript = await readJson(ctx.paths.transcript, TranscriptSchema);
+    const transcript = await readJson(ctx.paths.cutTranscript, TranscriptSchema);
     const { maxFrames, interval, width } = ctx.config.frames;
     const times = frameTimes({ words: transcript.words, duration: transcript.duration, maxFrames, interval });
     const manifest = await sampleFramesAt({
       ffmpeg: ctx.config.paths.ffmpeg,
-      video: ctx.paths.source,
+      video: ctx.paths.cut,
       framesDir: ctx.paths.framesDir,
       manifest: ctx.paths.frames,
       times,

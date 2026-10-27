@@ -40,6 +40,7 @@ export const ClaudeStyleSchema = z.object({
   flourishes: z.object({ bursts: z.boolean(), coins: z.boolean(), glow: z.boolean(), shake: z.boolean() }),
   icons: z.object({ stroke: z.number().describe("1.25 to 3"), tiles: style.icons.shape.tiles }),
   emphasis: style.emphasis,
+  layout: z.object({ speaker: z.enum(["full", "card"]), captions: z.enum(["none", "word"]) }),
   notes: z.string(),
 });
 

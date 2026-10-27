@@ -20,9 +20,9 @@ export async function readProject(ctx: ReelcutContext): Promise<Project> {
   }
 }
 
-export async function sourceVideo(ctx: ReelcutContext): Promise<string> {
-  const { source } = await readProject(ctx);
-  return source.kind === "url" ? ctx.paths.original : source.path;
+export async function sourceVideos(ctx: ReelcutContext): Promise<string[]> {
+  const { sources } = await readProject(ctx);
+  return sources.map((source) => (source.kind === "url" ? ctx.paths.original : source.path));
 }
 
 export async function readSpeaker(ctx: ReelcutContext): Promise<Speaker | null> {

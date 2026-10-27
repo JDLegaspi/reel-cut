@@ -2,7 +2,7 @@ import { Audio, Video } from "@remotion/media";
 import type { ReactNode } from "react";
 import { AbsoluteFill, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { speakerFrame, speakerPanel, type Rect, type Size } from "./framing.ts";
-import type { EmphasisWord, Phrase, RenderSegment } from "./props.ts";
+import type { CaptionWord, EmphasisWord, Phrase, RenderSegment } from "./props.ts";
 import { useStyle } from "./style/StyleContext.tsx";
 import { alpha, fontStack, headline, shadowFor, tracking } from "./style/tokens.ts";
 import { Backdrop, Camera, clamp01, fitSize, Marker, useProgress, useReveal } from "./templates/parts.tsx";
@@ -11,6 +11,11 @@ import { BOX, FULL_BOX_TOP } from "./templates/theme.ts";
 const FRAME: Size = { width: 1080, height: 1920 };
 const HALF = FRAME.height / 2;
 const PUNCH_ZOOM = 1.1;
+
+const CARD = { left: 44, top: HALF + 160, width: FRAME.width - 88, height: FRAME.height - HALF - 160 - 72 };
+const CARD_RADIUS = 36;
+const CARD_ANCHOR_Y = 0.4;
+const CAPTION_POP_FRAMES = 3;
 
 const WORD_RISE_FRAMES = 6;
 const UNSPOKEN_OPACITY = 0.25;
@@ -102,21 +107,23 @@ export function Speaker({
   if (!face) return <Voice video={video} phrases={phrases} split={split} />;
   const shotsSoFar = segments.filter((segment) => segment.from <= frame).length;
   const zoom = !active && shotsSoFar % 2 === 1 ? PUNCH_ZOOM : 1;
-  const alone = speakerPanel(crop, FRAME);
-  const panel = split ? { top: HALF, width: FRAME.width, height: HALF } : alone;
-  const framed = !split && alone.height < FRAME.height;
-  const placement = speakerFrame({ crop, source: FRAME, panel, zoom });
+  const alone = { left: 0, ...speakerPanel(crop, FRAME) };
+  const carded = split && style.layout.speaker === "card";
+  const panel = carded ? CARD : split ? { left: 0, top: HALF, width: FRAME.width, height: HALF } : alone;
+  const framed = carded || (!split && alone.height < FRAME.height);
+  const placement = speakerFrame({ crop, source: FRAME, panel, zoom, anchorY: carded ? CARD_ANCHOR_Y : undefined });
   return (
     <AbsoluteFill>
       {framed && <Backdrop />}
       <div
         style={{
           position: "absolute",
-          left: 0,
+          left: panel.left,
           top: panel.top,
           width: panel.width,
           height: panel.height,
           overflow: "hidden",
+          borderRadius: carded ? CARD_RADIUS : undefined,
           boxShadow: framed ? shadowFor(style, "card") : undefined,
         }}
       >
@@ -141,16 +148,18 @@ export function VisualShot({ layout, children }: { layout: "split" | "full"; chi
           <Backdrop />
           <Camera>{children}</Camera>
         </div>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: HALF,
-            width: FRAME.width,
-            height: 160,
-            background: `linear-gradient(${alpha(shade, 0.75)}, ${alpha(shade, 0)})`,
-          }}
-        />
+        {style.layout.speaker === "full" && (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: HALF,
+              width: FRAME.width,
+              height: 160,
+              background: `linear-gradient(${alpha(shade, 0.75)}, ${alpha(shade, 0)})`,
+            }}
+          />
+        )}
       </AbsoluteFill>
     );
   }
@@ -200,6 +209,58 @@ export function Emphasis({ word, index, top }: { word: EmphasisWord; index: numb
             {text}
           </Marker>
         )}
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function captionCentre(layout: "split" | "full" | null, card: boolean): number {
+  if (layout === "split") return card ? (HALF + CARD.top) / 2 : HALF + 120;
+  if (layout === "full") return FULL_BOX_TOP + BOX.height + 110;
+  return 1440;
+}
+
+export function Captions({ captions, segments }: { captions: CaptionWord[]; segments: RenderSegment[] }) {
+  const frame = useCurrentFrame();
+  const style = useStyle();
+  const caption = captions.find((candidate) => frame >= candidate.from && frame < candidate.from + candidate.durationInFrames);
+  if (!caption) return null;
+  const active = segments.find((segment) => frame >= segment.from && frame < segment.from + segment.durationInFrames);
+  const layout = active ? (active.kind === "visual" ? active.layout : "full") : null;
+  const { palette } = style;
+  const overVideo = layout === null || (layout === "split" && style.layout.speaker === "full");
+  const size = fitSize(caption.text, { max: 100, min: 64, fits: 11 });
+  const pop = interpolate(frame - caption.from, [0, CAPTION_POP_FRAMES], [0.9, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: 40,
+          right: 40,
+          top: captionCentre(layout, style.layout.speaker === "card"),
+          display: "flex",
+          justifyContent: "center",
+          transform: `translateY(-50%) scale(${pop})`,
+        }}
+      >
+        <div
+          style={{
+            padding: caption.accent ? "2px 22px 8px" : 0,
+            borderRadius: caption.accent ? 10 : 0,
+            background: caption.accent ? palette.accent : undefined,
+            color: caption.accent ? palette.onAccent : overVideo ? palette.surface : palette.onBackdrop,
+            fontFamily: fontStack(style.type.display),
+            fontSize: size,
+            fontWeight: style.type.displayWeight,
+            letterSpacing: tracking(style, size),
+            lineHeight: 1.1,
+            whiteSpace: "nowrap",
+            textShadow: caption.accent || !overVideo ? undefined : `0 4px 24px ${alpha(palette.onSurface, 0.55)}, 0 2px 6px ${alpha(palette.onSurface, 0.45)}`,
+          }}
+        >
+          {headline(style, caption.text)}
+        </div>
       </div>
     </AbsoluteFill>
   );

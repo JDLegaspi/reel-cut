@@ -18,6 +18,8 @@ const defaultProps: RenderProps = {
   emphasis: [],
   face: true,
   phrases: [],
+  captions: [],
+  brands: [],
 };
 
 const firstTemplate = TEMPLATES[0]!;

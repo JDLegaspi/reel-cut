@@ -1,5 +1,21 @@
 import { icons } from "lucide-react";
 import {
+  siAndroid,
+  siAtandt,
+  siCloudflare,
+  siCursor,
+  siEbay,
+  siFigma,
+  siFlutter,
+  siGithub,
+  siKotlin,
+  siNextdotjs,
+  siNpm,
+  siPlanetscale,
+  siReact,
+  siSentry,
+  siSwift,
+  siTypescript,
   siAnthropic,
   siApple,
   siAppstore,
@@ -52,6 +68,22 @@ const BRAND_ICONS = {
   notion: siNotion,
   anthropic: siAnthropic,
   claude: siClaude,
+  ebay: siEbay,
+  att: siAtandt,
+  github: siGithub,
+  npm: siNpm,
+  cursor: siCursor,
+  cloudflare: siCloudflare,
+  planetscale: siPlanetscale,
+  sentry: siSentry,
+  react: siReact,
+  nextjs: siNextdotjs,
+  typescript: siTypescript,
+  flutter: siFlutter,
+  kotlin: siKotlin,
+  swift: siSwift,
+  android: siAndroid,
+  figma: siFigma,
 };
 
 export type Brand = keyof typeof BRAND_ICONS;
@@ -92,6 +124,10 @@ export function Glyph({ name, size, color, strokeWidth }: { name: string; size: 
   const style = useStyle();
   const Icon = icons[iconKey(name) as keyof typeof icons] ?? icons.Sparkles;
   return <Icon size={size} color={color} strokeWidth={strokeWidth ?? style.icons.stroke} absoluteStrokeWidth={false} />;
+}
+
+export function isBuiltInBrand(name: string): name is Brand {
+  return name in BRAND_ICONS;
 }
 
 export function BrandMark({ brand, size }: { brand: Brand; size: number }) {

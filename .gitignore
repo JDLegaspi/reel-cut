@@ -1,8 +1,9 @@
 node_modules/
 .env
 *.log
-reel-cut/
+/reel-cut/
 reelcut/dist/
 reelcut/README.md
 reelcut/LICENSE
 .DS_Store
+/reel-cut.config.json

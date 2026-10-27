@@ -3,6 +3,7 @@ import { frameBlocks } from "@reel/shared/claude.ts";
 import type { FrameImage } from "@reel/shared/frames/frames.ts";
 import type { Transcript, Word } from "@reel/shared/schemas/transcript.ts";
 import { splitIntoLines } from "@reel/shared/transcribe/lines.ts";
+import type { Brand } from "../schemas/brands.ts";
 import type { PlannerOutput } from "../schemas/visualPlan.ts";
 import { templateCatalog } from "./catalog.ts";
 import type { VisualRules } from "./rules.ts";
@@ -59,7 +60,11 @@ The edit is made of three kinds of shot:
 A segment covers the words from startWord to endWord, inclusive, with one layout and one template. Its visual appears just before startWord is spoken and stays until the word after endWord begins, or until the video ends if endWord is the last word.
 
 What makes a good edit:
-- Illustrate, don't caption. Each visual shows what the speaker is talking about as a picture: an app as a phone screen, money as a counter, growth as a curve, a choice as two sides, a process as connected steps, platforms as their logos, an idea as a big icon. Words on a visual are short labels, never the speaker's sentence.
+- Illustrate, don't caption. Each visual shows what the speaker is talking about as a picture: an app as a phone screen, money as a counter, growth as a curve, a choice as two sides, a process as connected steps, platforms as their logos, a company as its website, an idea as a big icon. Words on a visual are short labels, never the speaker's sentence.
+- Be literal. When the speaker describes several things of a kind (projects, worktrees, teams, apps, clients), show that many, grouped the way they describe them (Groups for things that each hold several more), instead of one icon or an arrow between two icons.
+- Vary the visuals. No template may be used for more than a quarter of the visuals; the plan is sent back if one is. Concept (one big icon) is the fallback, not the default, and Flow is only for steps the speaker walks through in order.
+- Full visuals carry the biggest moments, so make each a concrete picture of the specific thing described: the phone showing the ad, the website, the product, the number. Never a generic chart or word for an adjective like successful, fast or very good; use Growth only when the speaker describes a change over time.
+- Companies. When the speaker introduces a company that has a website in the brands list, show the website with Website; for a company's or platform's logo, use Logos.
 - Keep it moving. Change shot every two to four seconds; segments can run back to back with different templates. Most of the video should be visuals, mostly split with some full, cut between short stretches of the speaker. Keep the opening hook and the closing call to action on the speaker, with emphasis.
 - Show only what the speaker says. Every name, number and claim on a visual must come from the words in or right around its segment. Icons and drawings may illustrate an idea but must not add facts. Transcripts often mishear the names of people, products and titles, and the video's own on-screen text (captions, overlays) often spells them correctly: when the two disagree, use the on-screen spelling. Use the frames only for spelling. Never put something on a visual because it appears on screen if the speaker doesn't say it.
 - Time each element to the word that introduces it.
@@ -86,15 +91,24 @@ export function indexedTranscript(words: Word[]): string[] {
   );
 }
 
+function brandList(brands: Brand[]): string {
+  const listed = brands
+    .filter((brand) => brand.site || brand.logo)
+    .map((brand) => `${brand.name} (${[brand.site && "website", brand.logo && "logo"].filter(Boolean).join(", ")})`);
+  return `Brands list, companies you can show beyond the built-in logos: ${listed.join(", ") || "none"}`;
+}
+
 export function buildPlanMessages(input: {
   transcript: Transcript;
   frames: FrameImage[];
+  brands?: Brand[];
   retry?: { previous: PlannerOutput; errors: string[] };
 }): Anthropic.Beta.BetaMessageParam[] {
   const { transcript, frames, retry } = input;
   const lines = indexedTranscript(transcript.words);
   const header = [
     `Duration: ${transcript.duration.toFixed(1)}s`,
+    brandList(input.brands ?? []),
     "",
     "<transcript>",
     lines.length > 0 ? lines.join("\n") : "(no speech)",

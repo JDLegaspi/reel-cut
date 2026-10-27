@@ -15,16 +15,19 @@ reelcut turns a vertical talking-head video into an Instagram-ready Reel. Its in
 
 ## Pipeline semantics
 
-- `reelcut run <url or file> [--name <project>] [--retake-word <word>] [--aggressive] [--speaker-crop <crop>] [--force]`. The project name defaults to `ig-<shortcode>` for Instagram URLs and a slug of the file name for local files.
-- Projects live in `reel-cut/projects/<name>/` under the current folder. `project.json` records the source (`{ "kind": "url", "url": … }` or `{ "kind": "file", "path": … }`), `retakeWord` and `aggressive`. `speaker.json` records the speaker crop (`top-half`, `bottom-half` or `x,y,width,height` in the 1080×1920 source): the part of the video that shows the speaker cleanly, without the original creator's overlays. It is a separate file so changing it only re-renders; a run without `--speaker-crop` keeps the current crop.
-- Stages: download, ingest, transcribe, frames, retakes, cut, plan, render, report.
+- `reelcut run <url or files…> [--name <project>] [--retake-word <word>] [--aggressive] [--speaker-crop <crop>] [--force]`. The project name defaults to `ig-<shortcode>` for Instagram URLs and a slug of the first file name for local files. Several files are clips recorded separately and stitched together in the order given (added 2026-10-26); a URL can only be used alone.
+- Projects live in `reel-cut/projects/<name>/` under the current folder. `project.json` records the sources (a list of `{ "kind": "url", "url": … }` or `{ "kind": "file", "path": … }`; projects from before clips have a single `source`, read as a list of one), `retakeWord` and `aggressive`. `speaker.json` records the speaker crop (`top-half`, `bottom-half` or `x,y,width,height` in the 1080×1920 source): the part of the video that shows the speaker cleanly, without the original creator's overlays. It is a separate file so changing it only re-renders; a run without `--speaker-crop` keeps the current crop.
+- Stages: download, ingest, clean, transcribe, retakes, cut, frames, plan, render.
   - **download**: URL sources only; writes `original.mp4` and `info.raw.json`. For file sources it has no outputs and does nothing.
-  - **ingest**: `project.json` plus `original.mp4` or the local file → `source.mp4` (1080×1920, constant frame rate, H.264) and `audio.wav`. Inputs without audio are rejected.
-  - **transcribe**: `audio.wav` → `transcript.json`.
-  - **frames**: `source.mp4` and `transcript.json` → `frames/` and `frames.json`. One frame while each capitalised word inside a sentence is spoken (likely a name, so burned-in captions show its spelling), the rest of the `maxFrames` budget evenly spaced at least `interval` apart.
+  - **ingest**: `project.json` plus `original.mp4` or the local files → `source.mp4` (1080×1920, constant frame rate, H.264) and `clips.json` (where each clip starts and ends). Each clip is normalised at the first clip's frame rate to a part with PCM sound, then the parts are joined, copying the picture and encoding the sound once, so the joins have no gaps. Inputs without audio are rejected.
+  - **clean** (added 2026-10-26): `source.mp4` → `voice.wav` (mono, 48 kHz). With `--isolate-voice` (`isolateVoice` in `project.json`) the track goes through ElevenLabs voice isolation first, removing background noise and most room echo.
+  - **transcribe**: `voice.wav` → `transcript.json`.
+  - **retakes**: `transcript.json` and `clips.json` → `cuts.json` (plus `cuts.raw.json`). Claude gets the numbered transcript with long pauses and clip starts marked, and returns the word ranges to keep in play order, plus what it left out and why. Clips keep the order given (revised 2026-10-27: the user's clips are separate parts more often than takes of the same lines); the one exception is a line said again in a later clip, whose better version takes the earlier one's place. Invalid ranges get one retry, then the stage fails.
+  - **cut**: `source.mp4`, `clips.json`, `voice.wav`, `transcript.json` and `cuts.json` → `cut.mp4` and `transcript.cut.json`. Each piece is encoded on its own (picture from `source.mp4`, sound from `voice.wav`, four at a time), because a single filter graph would buffer most of the video when pieces play out of order. The joined sound is measured, then brought to `audio.loudness` LUFS (-14, Instagram's target) with one linear gain.
+  - **frames**: `cut.mp4` and `transcript.cut.json` → `frames/` and `frames.json`. One frame while each capitalised word inside a sentence is spoken (likely a name, so burned-in captions show its spelling), the rest of the `maxFrames` budget evenly spaced at least `interval` apart.
   - **plan**: `transcript.json` and `frames.json` → `visual_plan.json` (plus `visual_plan.raw.json`, the raw responses). Claude gets the transcript with every word numbered, the frames, the visual brief below and the template catalog. On-screen text is used only to correct the spelling of names. The plan is checked against the timing rules and the content rules below; if anything fails, Claude gets one retry with every problem listed. After the retry, segments that still break a content rule are dropped (the speaker shows instead) and recorded in `downgraded`; a timing problem still fails the stage.
-  - **render**: `source.mp4`, `transcript.json`, `visual_plan.json` and `speaker.json` → `final.mp4` through Remotion (`reelcut/remotion/`). The plan is checked again first, so a hand edit that breaks a rule fails with the problem instead of rendering. `reelcut studio <project>` opens the same composition in Remotion Studio.
-  - Until retakes and cut exist (milestone 2), plan and render work on the uncut `transcript.json` and `source.mp4`.
+  - **render**: `cut.mp4`, `transcript.cut.json`, `visual_plan.json` and `speaker.json` → `final.mp4` through Remotion (`reelcut/remotion/`). The plan is checked again first, so a hand edit that breaks a rule fails with the problem instead of rendering. `reelcut studio <project>` opens the same composition in Remotion Studio.
+  - plan and render work on the cut: `transcript.cut.json` and `cut.mp4`.
 - Make-style staleness: a stage runs when any output is missing or older than any input. `--force` always reruns. `reelcut stage <name> <project>` runs one stage.
 - All tunables in `reelcut/reelcut.config.ts`; a `reel-cut.config.json` in the current folder overrides any of them (objects merge, arrays replace).
 
@@ -43,11 +46,11 @@ All JSON artifacts carry `version: 1`.
 
 ```json
 { "version": 1, "retakeWord": "again", "aggressive": false,
-  "keep":    [ { "fromWord": 0, "toWord": 11 } ],
+  "keep":    [ { "fromWord": 40, "toWord": 58 }, { "fromWord": 0, "toWord": 11 } ],
   "removed": [ { "fromWord": 12, "toWord": 16, "kind": "retake", "reason": "abandoned take before retake word" } ] }
 ```
 
-- Ranges are inclusive. `kind`: `retake | retake-word | false-start | filler | dead-air | other`.
+- Ranges are inclusive and use `transcript.json` word numbers. `keep` is what plays, in play order; a word may be kept once. `removed` explains what was left out and is not used by the cut. Files from before clips have only `removed`; everything else is kept, in order. `kind`: `retake | retake-word | false-start | filler | other`. Pauses are not removals; the cut shortens them.
 - Time ranges are always derived from this file, never stored in it.
 - If the LLM output is still invalid after one retry, the stage fails with the errors.
 
@@ -59,10 +62,11 @@ All JSON artifacts carry `version: 1`.
   "words":    [ { "i": 0, "srcI": 0, "text": "so", "start": 0.08, "end": 0.27 } ] }
 ```
 
+- It is a superset of `transcript.json`, so plan and render read it with the same schema; `srcI` is the word's number in `transcript.json`.
 - Segment edges are snapped to the frame grid so audio and video lengths match.
-- Padding: ~80 ms before, ~120 ms after, clamped against adjacent removed words.
-- Gaps longer than `maxGap` inside a kept range are split, keeping `maxGap / 2` each side.
-- ~30 ms audio fades inside every segment edge.
+- Padding: `cut.padBefore` (80 ms) before, `cut.padAfter` (120 ms) after, clamped against the neighbouring words and the edges of the clip, so a piece never shows a frame of another clip. A clip with no words is kept whole, in its place. Pieces that continue each other in the source are merged.
+- Gaps longer than `cut.maxGap` (0.3 s) inside a kept range are split, keeping `maxGap / 2` each side.
+- `cut.fadeMs` (30 ms) audio fades inside every segment edge.
 
 ### visual_plan.json
 
@@ -79,7 +83,7 @@ All JSON artifacts carry `version: 1`.
   "downgraded": [ { "template": "BarChart", "startWord": 90, "endWord": 104, "reason": "..." } ] }
 ```
 
-- Word indices refer to `transcript.cut.json` (until milestone 2, `transcript.json`).
+- Word indices refer to `transcript.cut.json`.
 - Face is implicit: any time not covered by a segment shows the speaker. Editorial rules are checked against the gaps.
 - Content rules: the template exists, its props match the template's schema, numbers a template declares in `spokenNumbers` (the `BigNumber` value, `BarChart` values) appear in the segment's spoken words ("forty" == "40"), and element keys are unique.
 - Reveal keys must exist in the template's `revealKeys(props)`, `atWord` must be inside the segment, reveals must be in order. Unrevealed elements show at segment start. Animation starts at word start minus `revealLeadMs` (default 40 ms).
@@ -94,6 +98,12 @@ All JSON artifacts carry `version: 1`.
 - Drawn motion graphics only (the user's choice over stock footage or AI images): Lucide icons, Simple Icons brand logos, and shapes drawn in code. No photos, screenshots or footage.
 - Still unusable: a visual claiming something the speaker didn't say, visuals out of sync with the words, or visuals that repeat the sentence.
 - Speaker framing: when the speaker crop is about as tall as the screen it fills the screen; a wide crop (such as half of the original) is shown at full width just above centre on the backdrop, with emphasis words in the band below it, rather than blown up. Speaker shots alternate between 1× and 1.1× zoom, like jump cuts.
+
+### Layout and captions (added 2026-10-27)
+
+- A style's `layout.speaker` is `full` (the speaker fills the bottom half of split shots) or `card` (a rounded card inset on the backdrop, framed a little high so the head isn't cut off). Speaker-only shots are always full screen.
+- `layout.captions` is `none` or `word`: the word being said, one at a time, from its start until the next word (or 0.4 s after it ends), above the card in split shots, under the visual in full shots and over the speaker otherwise. Emphasis words become accent-highlighted captions instead of separate big words.
+- `spellings.json` (optional, per project) maps misheard words or phrases to fixes with the same number of words. Plan and render read the cut transcript through it, so changing it re-plans and re-renders without re-cutting.
 
 ### Timing rules
 

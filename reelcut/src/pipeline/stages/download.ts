@@ -7,11 +7,12 @@ export const download: Stage<ReelcutContext> = {
   name: "download",
   inputs: async (ctx) => [ctx.paths.project],
   async outputs(ctx) {
-    const { source } = await readProject(ctx);
-    return source.kind === "url" ? [ctx.paths.original, ctx.paths.infoRaw] : [];
+    const [source] = (await readProject(ctx)).sources;
+    return source?.kind === "url" ? [ctx.paths.original, ctx.paths.infoRaw] : [];
   },
   async run(ctx) {
-    const { source } = await readProject(ctx);
+    const [source] = (await readProject(ctx)).sources;
+    if (!source) return;
     if (source.kind === "file") {
       ctx.log("local file; nothing to download");
       return;

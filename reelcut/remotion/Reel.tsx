@@ -1,13 +1,15 @@
 import { AbsoluteFill, Sequence } from "remotion";
+import { BrandsProvider } from "./BrandsContext.tsx";
 import { Placeholder } from "./Placeholder.tsx";
 import type { PreviewProps, RenderProps } from "./props.ts";
-import { Emphasis, emphasisTop, Speaker, VisualShot } from "./Shots.tsx";
+import { Captions, Emphasis, emphasisTop, Speaker, VisualShot } from "./Shots.tsx";
 import { StyleProvider } from "./style/StyleContext.tsx";
 import { StyleFonts } from "./style/StyleFonts.tsx";
 import { TemplateView } from "./TemplateView.tsx";
 
-export function Reel({ video, speakerCrop, segments, emphasis, style, fonts, face, phrases }: RenderProps) {
+export function Reel({ video, speakerCrop, segments, emphasis, style, fonts, face, phrases, captions, brands }: RenderProps) {
   return (
+    <BrandsProvider brands={brands}>
     <StyleProvider style={style}>
       <StyleFonts fonts={fonts} />
       <AbsoluteFill style={{ backgroundColor: style.palette.backdrop[1] }}>
@@ -28,13 +30,16 @@ export function Reel({ video, speakerCrop, segments, emphasis, style, fonts, fac
             )}
           </Sequence>
         ))}
+        <Captions captions={captions} segments={segments} />
       </AbsoluteFill>
     </StyleProvider>
+    </BrandsProvider>
   );
 }
 
-export function TemplatePreview({ template, props, at, layout, style, fonts }: PreviewProps) {
+export function TemplatePreview({ template, props, at, layout, style, fonts, brands }: PreviewProps) {
   return (
+    <BrandsProvider brands={brands ?? []}>
     <StyleProvider style={style}>
       <StyleFonts fonts={fonts} />
       <AbsoluteFill style={{ backgroundColor: style.palette.backdrop[1] }}>
@@ -43,5 +48,6 @@ export function TemplatePreview({ template, props, at, layout, style, fonts }: P
         </VisualShot>
       </AbsoluteFill>
     </StyleProvider>
+    </BrandsProvider>
   );
 }

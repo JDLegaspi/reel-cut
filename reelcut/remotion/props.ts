@@ -1,3 +1,4 @@
+import type { Brand } from "../src/schemas/brands.ts";
 import type { Style } from "../src/schemas/style.ts";
 import type { Rect } from "./framing.ts";
 
@@ -40,6 +41,13 @@ export type EmphasisWord = {
   text: string;
 };
 
+export type CaptionWord = {
+  from: number;
+  durationInFrames: number;
+  text: string;
+  accent: boolean;
+};
+
 export type PhraseWord = {
   text: string;
   from: number;
@@ -65,9 +73,12 @@ export type RenderProps = {
   emphasis: EmphasisWord[];
   face: boolean;
   phrases: Phrase[];
+  captions: CaptionWord[];
+  brands: Brand[];
 };
 
 export type PreviewProps = {
+  brands?: Brand[];
   layout: "split" | "full";
   template: string;
   props: Record<string, unknown>;

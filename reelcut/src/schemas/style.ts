@@ -54,6 +54,10 @@ const IconsSchema = z.strictObject({
 
 const MotionSchema = z.enum(["calm", "lively"]).describe("calm: soft springs and little floating; lively: snappy springs with overshoot");
 const EmphasisStyleSchema = z.enum(["solid", "highlight", "outline"]).describe("how the speaker's emphasis words are drawn");
+const LayoutSchema = z.strictObject({
+  speaker: z.enum(["full", "card"]).describe("in split shots, the speaker fills the bottom half edge to edge (full) or sits in a rounded card inset on the backdrop (card)"),
+  captions: z.enum(["none", "word"]).describe("none, or the word being said shown big, one at a time, with emphasis words in the accent"),
+});
 const NotesSchema = z.string().max(600).describe("a few sentences on how this style reflects the references");
 
 export const StyleSchema = z.strictObject({
@@ -66,6 +70,7 @@ export const StyleSchema = z.strictObject({
   flourishes: FlourishesSchema,
   icons: IconsSchema,
   emphasis: EmphasisStyleSchema,
+  layout: LayoutSchema.default({ speaker: "full", captions: "none" }),
   notes: NotesSchema,
 });
 
@@ -81,6 +86,7 @@ export const StyleOverridesSchema = z
     flourishes: FlourishesSchema.partial(),
     icons: IconsSchema.partial(),
     emphasis: EmphasisStyleSchema,
+    layout: LayoutSchema.partial(),
     notes: NotesSchema,
   })
   .partial();

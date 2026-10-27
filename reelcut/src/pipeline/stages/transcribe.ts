@@ -4,13 +4,13 @@ import type { ReelcutContext } from "../context.ts";
 
 export const transcribe: Stage<ReelcutContext> = {
   name: "transcribe",
-  inputs: async (ctx) => [ctx.paths.audio],
+  inputs: async (ctx) => [ctx.paths.source, ctx.paths.voice],
   outputs: async (ctx) => [ctx.paths.transcriptRaw, ctx.paths.transcript],
   async run(ctx) {
     await transcribeVideo({
       ffprobe: ctx.config.paths.ffprobe,
       video: ctx.paths.source,
-      audio: ctx.paths.audio,
+      audio: ctx.paths.voice,
       transcriptRaw: ctx.paths.transcriptRaw,
       transcript: ctx.paths.transcript,
       transcriber: ctx.transcriber,

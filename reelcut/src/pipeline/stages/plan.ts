@@ -1,50 +1,63 @@
 import { rm } from "node:fs/promises";
 import { loadFrameImages } from "@reel/shared/frames/frames.ts";
 import type { Stage } from "@reel/shared/pipeline/stage.ts";
-import { TranscriptSchema, type Transcript } from "@reel/shared/schemas/transcript.ts";
-import { readJson, writeJsonAtomic } from "@reel/shared/util/fs.ts";
+import type { Transcript } from "@reel/shared/schemas/transcript.ts";
+import { writeJsonAtomic } from "@reel/shared/util/fs.ts";
 import { contentProblems } from "../../plan/content.ts";
 import { emphasisProblems } from "../../plan/emphasis.ts";
 import { bulleted, segmentWindow, validatePlan, type VisualRules } from "../../plan/rules.ts";
 import type { Downgraded, Emphasis, PlannedVisual, PlannerOutput, VisualPlan } from "../../schemas/visualPlan.ts";
 import type { ReelcutContext } from "../context.ts";
 import { readProject } from "../project.ts";
+import { readCutTranscript, spellingInputs } from "../words.ts";
+import { brandInputs, readBrands } from "../brands.ts";
+import { varietyProblems } from "../../plan/variety.ts";
+import type { Brand } from "../../schemas/brands.ts";
 
 function emphasisCheck(transcript: Transcript, rules: VisualRules, segments: PlannedVisual[]) {
   return (word: Emphasis) =>
     emphasisProblems(word, { words: transcript.words, duration: transcript.duration, leadMs: rules.leadMs, segments });
 }
 
-function review(output: PlannerOutput, transcript: Transcript, rules: VisualRules) {
-  const content = output.segments.map((segment, k) => contentProblems(segment, transcript.words, k + 1));
+function review(output: PlannerOutput, transcript: Transcript, rules: VisualRules, brands: Brand[]) {
+  const content = output.segments.map((segment, k) => contentProblems(segment, transcript.words, k + 1, brands));
   const timing = validatePlan(output.segments, transcript.words, transcript.duration, rules);
   const emphasis = output.emphasis.flatMap(emphasisCheck(transcript, rules, output.segments));
-  return { content, all: [...timing, ...content.flat(), ...emphasis] };
+  const variety = varietyProblems(output.segments);
+  return { content, variety, all: [...timing, ...content.flat(), ...emphasis, ...variety] };
 }
 
 export const plan: Stage<ReelcutContext> = {
   name: "plan",
-  inputs: async (ctx) => [ctx.paths.project, ctx.paths.transcript, ctx.paths.frames],
+  inputs: async (ctx) => [
+    ctx.paths.project,
+    ctx.paths.cutTranscript,
+    ctx.paths.frames,
+    ...(await spellingInputs(ctx)),
+    ...(await brandInputs(ctx)),
+  ],
   outputs: async (ctx) => [ctx.paths.visualPlanRaw, ctx.paths.visualPlan],
   async run(ctx) {
-    const transcript = await readJson(ctx.paths.transcript, TranscriptSchema);
+    const transcript = await readCutTranscript(ctx);
     const frames = await loadFrameImages(ctx.paths.frames);
     const rules = ctx.config.visuals;
     const planner = ctx.planner();
     const { face } = await readProject(ctx);
+    const brands = await readBrands(ctx);
 
-    const first = await planner.plan({ transcript, frames, rules, face });
+    const first = await planner.plan({ transcript, frames, rules, face, brands });
     const attempts = [first.raw];
     let output = first.output;
-    let problems = review(output, transcript, rules);
+    let problems = review(output, transcript, rules, brands);
     if (problems.all.length > 0) {
       ctx.log(`plan has ${problems.all.length} problem(s); asking for a corrected plan`);
-      const second = await planner.plan({ transcript, frames, rules, face, retry: { previous: output, errors: problems.all } });
+      const second = await planner.plan({ transcript, frames, rules, face, brands, retry: { previous: output, errors: problems.all } });
       attempts.push(second.raw);
       output = second.output;
-      problems = review(output, transcript, rules);
+      problems = review(output, transcript, rules, brands);
     }
     await writeJsonAtomic(ctx.paths.visualPlanRaw, attempts);
+    for (const problem of problems.variety) ctx.log(`warning: ${problem}`);
 
     const kept: PlannedVisual[] = [];
     const downgraded: Downgraded[] = [];

@@ -30,9 +30,19 @@ const config: ReelcutConfig = {
     maxFrames: 24,
     width: 720,
   },
+  audio: {
+    isolateVoice: false,
+    loudness: -14,
+  },
   retakes: {
     retakeWord: "again",
     aggressive: false,
+  },
+  cut: {
+    padBefore: 0.08,
+    padAfter: 0.12,
+    maxGap: 0.3,
+    fadeMs: 30,
   },
   visuals: {
     leadMs: 40,

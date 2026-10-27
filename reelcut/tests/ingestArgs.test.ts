@@ -15,7 +15,7 @@ describe("isTargetAspect", () => {
 });
 
 describe("buildNormalizeArgs", () => {
-  const args = buildNormalizeArgs({ input: "in.mov", output: "out.mp4", fps: { num: 30000, den: 1001 }, video });
+  const args = buildNormalizeArgs({ input: "in.mov", output: "out.mov", fps: { num: 30000, den: 1001 }, video });
   const filter = args[args.indexOf("-vf") + 1];
 
   test("converts to constant frame rate before scaling", () => {
@@ -27,27 +27,27 @@ describe("buildNormalizeArgs", () => {
     expect(filter).toContain("crop=1080:1920");
   });
 
-  test("encodes H.264 yuv420p with AAC audio", () => {
-    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-b:a", "192k"]));
+  test("encodes H.264 yuv420p with PCM audio, ready to join with other takes", () => {
+    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-crf", "18", "-c:a", "pcm_s16le", "-ar", "48000"]));
     expect(filter).toContain("format=yuv420p");
   });
 
   test("maps the first video and audio streams and writes the output last", () => {
     expect(args).toEqual(expect.arrayContaining(["-map", "0:v:0", "-map", "0:a:0"]));
-    expect(args.at(-1)).toBe("out.mp4");
+    expect(args.at(-1)).toBe("out.mov");
   });
 });
 
 describe("buildVoiceOnlyArgs", () => {
-  const args = buildVoiceOnlyArgs({ input: "voice.mp3", output: "out.mp4", video });
+  const args = buildVoiceOnlyArgs({ input: "voice.mp3", output: "out.mov", video });
 
   test("draws a plain 1080x1920 30fps picture under the audio", () => {
     expect(args).toEqual(expect.arrayContaining(["-f", "lavfi", "-i", "color=c=black:s=1080x1920:r=30"]));
     expect(args).toEqual(expect.arrayContaining(["-map", "0:v:0", "-map", "1:a:0", "-shortest"]));
   });
 
-  test("encodes H.264 yuv420p with AAC audio and writes the output last", () => {
-    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k"]));
-    expect(args.at(-1)).toBe("out.mp4");
+  test("encodes H.264 yuv420p with PCM audio and writes the output last", () => {
+    expect(args).toEqual(expect.arrayContaining(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le"]));
+    expect(args.at(-1)).toBe("out.mov");
   });
 });

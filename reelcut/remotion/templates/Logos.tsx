@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { defineTemplate } from "./defineTemplate.ts";
-import { BRANDS, BrandMark } from "./icons.tsx";
+import { Img, staticFile } from "remotion";
+import { useBrand } from "../BrandsContext.tsx";
+import { BRANDS, BrandMark, isBuiltInBrand } from "./icons.tsx";
 import { useStyle } from "../style/StyleContext.tsx";
 import { fontStack, headline, shadowFor } from "../style/tokens.ts";
 import { pop, rise, useFloat, useReveal } from "./parts.tsx";
 
 const schema = z.object({
   brands: z
-    .array(z.object({ key: z.string().min(1).max(20), brand: z.enum(BRANDS) }))
+    .array(z.object({ key: z.string().min(1).max(20), brand: z.string().min(1).max(30).describe("a built-in brand or a company from the brands list") }))
     .min(1)
     .max(4)
     .describe("platforms or companies the speaker names"),
@@ -16,7 +18,15 @@ const schema = z.object({
 
 type Props = z.infer<typeof schema>;
 
-function Tile({ brand, at, index, x, y, size }: { brand: Props["brands"][number]["brand"]; at: number | undefined; index: number; x: number; y: number; size: number }) {
+function Mark({ brand, size }: { brand: string; size: number }) {
+  const style = useStyle();
+  const project = useBrand(brand);
+  if (isBuiltInBrand(brand)) return <BrandMark brand={brand} size={size} />;
+  if (project?.logo) return <Img src={staticFile(project.logo)} style={{ width: size * 1.25, height: size * 1.25, objectFit: "contain" }} />;
+  return <div style={{ fontFamily: fontStack(style.type.display), fontWeight: style.type.displayWeight, fontSize: size * 0.4, color: style.palette.onSurface }}>{brand}</div>;
+}
+
+function Tile({ brand, at, index, x, y, size }: { brand: string; at: number | undefined; index: number; x: number; y: number; size: number }) {
   const progress = useReveal(at, index * 5, { damping: 10, stiffness: 180, mass: 0.7 });
   const bob = useFloat(12, 64, index * 1.7);
   const style = useStyle();
@@ -40,7 +50,7 @@ function Tile({ brand, at, index, x, y, size }: { brand: Props["brands"][number]
         opacity: pop(progress).opacity,
       }}
     >
-      <BrandMark brand={brand} size={size * 0.56} />
+      <Mark brand={brand} size={size * 0.56} />
     </div>
   );
 }
@@ -72,10 +82,11 @@ function Component({ props, at }: { props: Props; at: Record<string, number> }) 
 
 export const Logos = defineTemplate({
   name: "Logos",
-  description: `One to four platform or company logos bouncing in on tiles, with an optional label. Brands: ${BRANDS.join(", ")}. Elements: "label", and each logo's key.`,
+  description: `One to four platform or company logos bouncing in on tiles, with an optional label. Built-in brands: ${BRANDS.join(", ")}; also any company in the brands list that has a logo. Elements: "label", and each logo's key.`,
   schema,
   revealKeys: (props) => [...props.brands.map((item) => item.key), ...(props.label ? ["label"] : [])],
   spokenTexts: (props) => [props.label],
+  brandsUsed: (props) => props.brands.map((item) => ({ name: item.brand, needs: "logo" as const })),
   example: {
     brands: [
       { key: "ig", brand: "instagram" },

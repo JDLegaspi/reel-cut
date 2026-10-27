@@ -44,13 +44,19 @@ npx reel-cut run ./my-video.mp4
 
 ```sh
 npx reel-cut run <video file or reel URL> [options]
+npx reel-cut run intro.mov part2.mov outro.mov [options]
 ```
 
-The finished video lands in `reel-cut/projects/<name>/final.mp4` under the current folder. The project name defaults to the file name, or `ig-<shortcode>` for Instagram URLs.
+Give it several clips you recorded separately and it stitches them together in the order you list them, cleaning up each one. If a later clip says a line again, it keeps the better version and drops the other. A clip with no speech is kept whole.
+
+The finished video lands in `reel-cut/projects/<name>/final.mp4` under the current folder. The project name defaults to the (first) file name, or `ig-<shortcode>` for Instagram URLs.
 
 | Option | Does |
 | --- | --- |
 | `--style <name>` | Draws the visuals in a style made with `reel-cut style create` |
+| `--isolate-voice` | Cleans up the voice with ElevenLabs voice isolation, removing background noise and room echo |
+| `--aggressive` | Also cuts natural fillers ("um", "like") inside good sentences |
+| `--retake-word <word>` | A word you say to mark a redo (default `again`) |
 | `--no-face` | Treats the input as a voiceover with no one on camera; the spoken words fill the screen between visuals |
 | `--speaker-crop top-half\|bottom-half\|x,y,w,h` | Frames the part of the video that shows the speaker |
 | `--force` | Reruns every stage |
@@ -70,13 +76,16 @@ npx reel-cut studio my-video           # preview the edit in Remotion Studio
 | Stage | Does |
 | --- | --- |
 | download | Fetches a reel URL with yt-dlp (skipped for local files) |
-| ingest | Normalises the video to 1080×1920 H.264 and extracts the audio |
+| ingest | Normalises each clip to 1080×1920 H.264 and stitches them together in order |
+| clean | Extracts the voice track, through ElevenLabs voice isolation with `--isolate-voice` |
 | transcribe | Word-level transcript with ElevenLabs Scribe |
+| retakes | Claude keeps the best take of each line and drops false starts and stray fillers, into `cuts.json` |
+| cut | Plays the kept words in order, shortens long pauses and evens out loudness, into `cut.mp4` |
 | frames | Samples frames, so Claude can see the video and spell names correctly |
 | plan | Claude picks templates and timings, checked against timing and content rules |
 | render | Renders `final.mp4` with Remotion |
 
-Every intermediate file is plain JSON. Edit `visual_plan.json` by hand, run `reel-cut stage render <name>`, and only the render reruns.
+Every intermediate file is plain JSON. Edit `visual_plan.json` by hand, run `reel-cut stage render <name>`, and only the render reruns. Fix misheard names for captions and visuals in `spellings.json`. `cuts.json` lists what plays in `keep` (word ranges, in play order) and what was left out, with reasons, in `removed`. Change `keep` and run `reel-cut run` again with the same options to change the edit.
 
 ## Styles
 
@@ -87,7 +96,7 @@ npx reel-cut style create acme --from https://acme.com ./logo.png
 npx reel-cut run ./my-video.mp4 --style acme
 ```
 
-Each style comes with `sheet.png`, a preview of every template in it. After editing `style.json` by hand, redraw it with `reel-cut style sheet <name>`.
+A style also sets the layout: you can sit in a rounded card under split visuals, and have one-word captions with key words highlighted. Each style comes with `sheet.png`, a preview of every template in it. After editing `style.json` by hand, redraw it with `reel-cut style sheet <name>`.
 
 ## Configuration
 
@@ -121,5 +130,4 @@ MIT. reel-cut renders with Remotion, which has its own [licence](https://www.rem
 
 ## Roadmap
 
-- Retake and filler removal
 - A desktop extension for the Claude app

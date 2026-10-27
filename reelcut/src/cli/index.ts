@@ -3,6 +3,7 @@ import { sourceFor } from "@reel/shared/download/ytdlp.ts";
 import { createElevenLabsTranscriber } from "@reel/shared/transcribe/elevenlabs.ts";
 import { Command } from "commander";
 import { config as loadEnv } from "dotenv";
+import { createElevenLabsVoiceIsolator } from "../audio/elevenlabs.ts";
 import { loadConfig } from "../config/load.ts";
 import { canRun, checkSetup } from "../doctor.ts";
 import { parseSpeakerCrop } from "../media/speakerCrop.ts";
@@ -12,6 +13,7 @@ import { findStage, initProject, runPipeline, runStage, STAGES } from "../pipeli
 import { renderPropsFor } from "../pipeline/stages/render.ts";
 import { templateCatalog } from "../plan/catalog.ts";
 import { createClaudePlanner } from "../plan/claude.ts";
+import { createClaudeRetakeFinder } from "../retakes/claude.ts";
 import { createRemotionRenderer, createRemotionSheetRenderer, openStudio } from "../render/remotion.ts";
 import { createClaudeStyler } from "../style/claude.ts";
 import { createStyleContext, type StyleContext } from "../style/pipeline/context.ts";
@@ -26,7 +28,9 @@ function contextFor(name: string): ReelcutContext {
     projectsRoot: resolve(config.paths.projectsDir),
     stylesRoot: resolve(config.paths.stylesDir),
     config,
+    isolator: () => createElevenLabsVoiceIsolator(),
     transcriber: () => createElevenLabsTranscriber(config.transcription),
+    retakeFinder: () => createClaudeRetakeFinder(),
     planner: () => createClaudePlanner(),
     renderer: () => createRemotionRenderer(),
     log: (message) => console.log(message),
@@ -64,27 +68,38 @@ program
 program
   .command("run")
   .description("Run every stage that is missing or out of date")
-  .argument("<input>", "reel URL or video file")
+  .argument("<inputs...>", "reel URL, or one or more video files: several clips are stitched together in order")
   .option("--name <project>", "project name (defaults to the reel id or file name)")
   .option("--retake-word <word>", "word that abandons the previous attempt")
   .option("--aggressive", "also remove natural fillers inside good sentences")
+  .option("--isolate-voice", "clean up the voice with ElevenLabs voice isolation, removing background noise and echo")
   .option("--speaker-crop <crop>", 'part of the video that shows the speaker: "top-half", "bottom-half" or x,y,width,height')
   .option("--no-face", "the input is a voiceover with no one on camera; shots without a visual show the spoken words")
   .option("--style <name>", 'style to draw the visuals in, made with "reel-cut style create"; "default" for the built-in look')
   .option("--force", "rerun every stage")
   .action(
     async (
-      input: string,
-      opts: { name?: string; retakeWord?: string; aggressive?: boolean; face?: boolean; speakerCrop?: string; style?: string; force?: boolean },
+      inputs: string[],
+      opts: {
+        name?: string;
+        retakeWord?: string;
+        aggressive?: boolean;
+        isolateVoice?: boolean;
+        face?: boolean;
+        speakerCrop?: string;
+        style?: string;
+        force?: boolean;
+      },
     ) => {
-    const source = sourceFor(input);
-    const name = opts.name ?? defaultProjectName(source);
+    const sources = inputs.map(sourceFor);
+    const name = opts.name ?? defaultProjectName(sources[0]!);
     const ctx = contextFor(name);
     await initProject(ctx, {
-      source,
+      sources,
       retakeWord: opts.retakeWord ?? ctx.config.retakes.retakeWord,
       aggressive: opts.aggressive ?? ctx.config.retakes.aggressive,
       face: opts.face,
+      isolateVoice: opts.isolateVoice ?? ctx.config.audio.isolateVoice,
       speakerCrop: opts.speakerCrop === undefined ? undefined : parseSpeakerCrop(opts.speakerCrop, ctx.config.video),
       style: opts.style === undefined ? undefined : opts.style === "default" ? null : opts.style,
     });

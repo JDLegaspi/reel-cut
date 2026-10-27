@@ -24,6 +24,12 @@ describe("speakerFrame", () => {
     });
   });
 
+  test("can sit the crop higher in a wide panel so the head is not cut off", () => {
+    const frame = speakerFrame({ crop: { x: 0, y: 0, width: 1080, height: 1920 }, source, panel: { width: 1000, height: 740 }, zoom: 1, anchorY: 0.25 });
+    expect(frame.width).toBeCloseTo(1000);
+    expect(frame.top).toBeCloseTo(((740 - 1920 * (1000 / 1080)) * 0.25));
+  });
+
   test("zooms in around the centre of the crop", () => {
     const frame = speakerFrame({ crop: { x: 0, y: 0, width: 1080, height: 1920 }, source, panel: source, zoom: 1.5 });
     expect(frame).toEqual({ width: 1620, height: 2880, left: -270, top: -480 });
