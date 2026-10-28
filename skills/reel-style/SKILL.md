@@ -12,7 +12,7 @@ A reel-cut style is a `style.json` of palette, fonts, shapes and motion. Templat
 Run in the background, since it takes a minute or two:
 
 ```sh
-npx -y reel-cut style create <name> --from <reference> [<reference>...]
+npx -y @jose.legaspi/reel-cut style create <name> --from <reference> [<reference>...]
 ```
 
 References can be websites, GitHub repos, reel URLs, or image, video or HTML files. Two or three references of the same brand work better than one. The name must be lowercase letters, digits and dashes.
@@ -22,7 +22,7 @@ The command gathers screenshots, asks Claude for a style, and draws `sheet.png`,
 ## Use it
 
 ```sh
-npx -y reel-cut run <video> --style <name>
+npx -y @jose.legaspi/reel-cut run <video> --style <name>
 ```
 
 For an existing project, repeat the project's original input and flags, adding `--style <name>`. Only the render reruns. Use `--style default` to go back to the built-in look.
@@ -33,8 +33,8 @@ A style's `layout` sets how the speaker sits under split visuals (`speaker`: `fu
 
 ## Tweak it
 
-- **A style everywhere:** edit `reel-cut/styles/<name>/style.json`, then run `npx -y reel-cut style sheet <name>` and look at the new sheet. The schema is closed, so the sheet command names any value it rejects.
-- **One project only:** put the changed fields under `overrides` in `reel-cut/projects/<project>/style.json`, using the same sections as the style itself, then run `npx -y reel-cut stage render <project>`:
+- **A style everywhere:** edit `reel-cut/styles/<name>/style.json`, then run `npx -y @jose.legaspi/reel-cut style sheet <name>` and look at the new sheet. The schema is closed, so the sheet command names any value it rejects.
+- **One project only:** put the changed fields under `overrides` in `reel-cut/projects/<project>/style.json`, using the same sections as the style itself, then run `npx -y @jose.legaspi/reel-cut stage render <project>`:
   ```json
   { "version": 1, "base": "acme", "overrides": { "palette": { "accent": "#ff7a00", "onAccent": "#ffffff" } } }
   ```

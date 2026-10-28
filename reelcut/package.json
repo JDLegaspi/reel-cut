@@ -1,5 +1,5 @@
 {
-  "name": "reel-cut",
+  "name": "@jose.legaspi/reel-cut",
   "version": "0.1.0",
   "description": "Turn a vertical talking-head video into an edited, Instagram-ready Reel with Claude and Remotion",
   "license": "MIT",
