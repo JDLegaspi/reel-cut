@@ -26,10 +26,12 @@ For several clips recorded separately, pass them in the order they should play: 
 | `--name <project>` | Picking the project name (default: file name, or `ig-<id>` for Instagram) |
 | `--style <name>` | Drawing visuals in a style made with the reel-style skill |
 | `--no-face` | The video is a voiceover with nobody on camera |
-| `--isolate-voice` | The user's own recording, with room echo or background noise |
+| `--isolate-voice` | Only when the user explicitly asks to isolate the voice or remove echo or background noise |
 | `--aggressive` | The user wants "um", "like" and similar cut even inside good sentences |
 | `--speaker-crop top-half\|bottom-half\|x,y,w,h` | The speaker fills only part of the 1080×1920 frame, e.g. a repost with overlays. Check `frames/` first |
 | `--force` | Rerunning every stage. Re-bills both APIs and discards hand edits |
+
+Never add `--isolate-voice` on your own, even if the audio sounds echoey: ElevenLabs voice isolation is billed separately and costs far more than the rest of the run. If echo or noise is a problem, tell the user the flag exists and let them decide.
 
 The result is `reel-cut/projects/<name>/final.mp4`. Before calling it done, check it with `ffprobe` and look at a few frames (`ffmpeg -ss <seconds> -i final.mp4 -frames:v 1 frame.png`).
 

@@ -72,7 +72,7 @@ program
   .option("--name <project>", "project name (defaults to the reel id or file name)")
   .option("--retake-word <word>", "word that abandons the previous attempt")
   .option("--aggressive", "also remove natural fillers inside good sentences")
-  .option("--isolate-voice", "clean up the voice with ElevenLabs voice isolation, removing background noise and echo")
+  .option("--isolate-voice", "clean up the voice with ElevenLabs voice isolation, removing background noise and echo (expensive, off by default)")
   .option("--speaker-crop <crop>", 'part of the video that shows the speaker: "top-half", "bottom-half" or x,y,width,height')
   .option("--no-face", "the input is a voiceover with no one on camera; shots without a visual show the spoken words")
   .option("--style <name>", 'style to draw the visuals in, made with "reel-cut style create"; "default" for the built-in look')
