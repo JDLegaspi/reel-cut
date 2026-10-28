@@ -34,8 +34,8 @@ Then ask: *"Turn ~/Movies/take3.mov into a reel, and make the revenue bit a big 
 ### On the command line
 
 ```sh
-npx reel-cut doctor
-npx reel-cut run ./my-video.mp4
+npx @jose.legaspi/reel-cut doctor
+npx @jose.legaspi/reel-cut run ./my-video.mp4
 ```
 
 `doctor` checks that FFmpeg, yt-dlp and your keys are set up.
@@ -43,8 +43,8 @@ npx reel-cut run ./my-video.mp4
 ## Usage
 
 ```sh
-npx reel-cut run <video file or reel URL> [options]
-npx reel-cut run intro.mov part2.mov outro.mov [options]
+npx @jose.legaspi/reel-cut run <video file or reel URL> [options]
+npx @jose.legaspi/reel-cut run intro.mov part2.mov outro.mov [options]
 ```
 
 Give it several clips you recorded separately and it stitches them together in the order you list them, cleaning up each one. If a later clip says a line again, it keeps the better version and drops the other. A clip with no speech is kept whole.
@@ -64,9 +64,9 @@ The finished video lands in `reel-cut/projects/<name>/final.mp4` under the curre
 Other commands:
 
 ```sh
-npx reel-cut templates                 # every visual template and the props it takes
-npx reel-cut stage render my-video     # rerun one stage
-npx reel-cut studio my-video           # preview the edit in Remotion Studio
+npx @jose.legaspi/reel-cut templates                 # every visual template and the props it takes
+npx @jose.legaspi/reel-cut stage render my-video     # rerun one stage
+npx @jose.legaspi/reel-cut studio my-video           # preview the edit in Remotion Studio
 ```
 
 ## How it works
@@ -92,8 +92,8 @@ Every intermediate file is plain JSON. Edit `visual_plan.json` by hand, run `ree
 A style is a small JSON file of colours, fonts and shapes. reel-cut can make one from references: websites, GitHub repos, reels, and image, video or HTML files.
 
 ```sh
-npx reel-cut style create acme --from https://acme.com ./logo.png
-npx reel-cut run ./my-video.mp4 --style acme
+npx @jose.legaspi/reel-cut style create acme --from https://acme.com ./logo.png
+npx @jose.legaspi/reel-cut run ./my-video.mp4 --style acme
 ```
 
 A style also sets the layout: you can sit in a rounded card under split visuals, and have one-word captions with key words highlighted. Each style comes with `sheet.png`, a preview of every template in it. After editing `style.json` by hand, redraw it with `reel-cut style sheet <name>`.

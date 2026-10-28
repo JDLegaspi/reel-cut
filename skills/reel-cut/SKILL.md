@@ -5,11 +5,11 @@ description: Use when the user wants a vertical talking-head video, voiceover or
 
 # reel-cut
 
-`npx -y reel-cut` edits a vertical video in stages: clean the voice and transcribe (ElevenLabs), cut retakes and pauses, plan visuals (Claude), render (Remotion). Every stage writes files to `reel-cut/projects/<name>/` under the current folder and only reruns when its inputs change, so hand edits survive.
+`npx -y @jose.legaspi/reel-cut` edits a vertical video in stages: clean the voice and transcribe (ElevenLabs), cut retakes and pauses, plan visuals (Claude), render (Remotion). Every stage writes files to `reel-cut/projects/<name>/` under the current folder and only reruns when its inputs change, so hand edits survive.
 
 ## Before the first run
 
-1. Run `npx -y reel-cut doctor`. For anything missing, tell the user its hint. API keys go in `.env` in the current folder or the shell; never invent one.
+1. Run `npx -y @jose.legaspi/reel-cut doctor`. For anything missing, tell the user its hint. API keys go in `.env` in the current folder or the shell; never invent one.
 2. If the speaker says names (company, product, people), write them to `reel-cut.config.json` so they're transcribed with the right spelling:
    ```json
    { "transcription": { "keyterms": ["Acme", "Jane Doe"] } }
@@ -17,9 +17,9 @@ description: Use when the user wants a vertical talking-head video, voiceover or
 
 ## Make the reel
 
-Run `npx -y reel-cut run <video file or reel URL> [options]` in the background: it takes minutes and calls paid APIs. Wait for it to finish rather than polling.
+Run `npx -y @jose.legaspi/reel-cut run <video file or reel URL> [options]` in the background: it takes minutes and calls paid APIs. Wait for it to finish rather than polling.
 
-For several clips recorded separately, pass them in the order they should play: `npx -y reel-cut run intro.mov part2.mov outro.mov`. They're stitched together in that order and each is cleaned up; a line said again in a later clip keeps only its better version. Clips must be local files.
+For several clips recorded separately, pass them in the order they should play: `npx -y @jose.legaspi/reel-cut run intro.mov part2.mov outro.mov`. They're stitched together in that order and each is cleaned up; a line said again in a later clip keeps only its better version. Clips must be local files.
 
 | Option | Use when |
 | --- | --- |
@@ -53,15 +53,15 @@ Before planning, read `transcript.cut.json` for misheard names and write fixes t
 | `style.json` | The project's style, as `base` plus `overrides` |
 
 1. Find the word numbers for the moment in `transcript.cut.json` (not `transcript.json`: the plan counts words after the cut).
-2. Run `npx -y reel-cut templates` to see every template and the props it takes.
+2. Run `npx -y @jose.legaspi/reel-cut templates` to see every template and the props it takes.
 3. Edit the segment in `visual_plan.json`.
-4. Run `npx -y reel-cut stage render <name>` in the background. The render checks the plan first and names each problem, so fix those and run it again.
+4. Run `npx -y @jose.legaspi/reel-cut stage render <name>` in the background. The render checks the plan first and names each problem, so fix those and run it again.
 
 To put back something the cut left out, cut more, or change the order, edit `keep` in `cuts.json` and run `run` again with the same inputs and flags. Word numbers in the plan change, so the plan is redone too.
 
-To have Claude plan from scratch instead, run `npx -y reel-cut stage plan <name> --force`. That overwrites `visual_plan.json`.
+To have Claude plan from scratch instead, run `npx -y @jose.legaspi/reel-cut stage plan <name> --force`. That overwrites `visual_plan.json`.
 
-`npx -y reel-cut studio <name>` opens a live preview in the browser. Run it in the background.
+`npx -y @jose.legaspi/reel-cut studio <name>` opens a live preview in the browser. Run it in the background.
 
 ## Common mistakes
 
