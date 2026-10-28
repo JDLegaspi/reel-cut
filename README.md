@@ -54,7 +54,7 @@ The finished video lands in `reel-cut/projects/<name>/final.mp4` under the curre
 | Option | Does |
 | --- | --- |
 | `--style <name>` | Draws the visuals in a style made with `reel-cut style create` |
-| `--isolate-voice` | Cleans up the voice with ElevenLabs voice isolation, removing background noise and room echo |
+| `--isolate-voice` | Cleans up the voice with ElevenLabs voice isolation, removing background noise and room echo. Off by default because it is expensive; the agent skill only uses it when you ask |
 | `--aggressive` | Also cuts natural fillers ("um", "like") inside good sentences |
 | `--retake-word <word>` | A word you say to mark a redo (default `again`) |
 | `--no-face` | Treats the input as a voiceover with no one on camera; the spoken words fill the screen between visuals |
